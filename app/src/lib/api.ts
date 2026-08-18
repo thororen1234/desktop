@@ -1065,6 +1065,42 @@ export class API {
     }
   }
 
+  /**
+   * Fetch all repositories the user has explicit permission to access, in a
+   * streaming fashion. The callback is invoked once per page of results.
+   *
+   * The vast majority of users have few repositories and no org
+   * affiliations. We start by making one request to load all repositories
+   * available to the user regardless of affiliation and only if that
+   * request isn't enough to load all repositories will we divvy up the
+   * requests and load repositories by owner and collaborator+org
+   * affiliation separately. This way we can avoid making unnecessary
+   * requests to the API for the majority of users while still improving the
+   * experience for those with access to a lot of repositories and orgs.
+   */
+  public async fetchUserRepositories(
+    callback: (repos: ReadonlyArray<IAPIRepository>) => void
+  ) {
+    await this.streamUserRepositories(callback, undefined, {
+      continue: async () => {
+        // If the continue callback is called we know that the first
+        // request wasn't enough to load all repositories.
+        //
+        // For these users (with access to more than 100 repositories) we'll
+        // stream each of the three different affiliation types concurrently
+        // to minimize the time it takes to load all repositories.
+        await Promise.all([
+          this.streamUserRepositories(callback, 'owner'),
+          this.streamUserRepositories(callback, 'collaborator'),
+          this.streamUserRepositories(callback, 'organization_member'),
+        ])
+
+        // Don't load more than one page in the initial stream request.
+        return false
+      },
+    })
+  }
+
   /** Fetch the logged in account. */
   public async fetchAccount(): Promise<IAPIFullIdentity> {
     try {

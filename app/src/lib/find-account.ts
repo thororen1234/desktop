@@ -1,5 +1,6 @@
 import * as URL from 'url'
-import { getHTMLURL, API } from './api'
+import { getHTMLURL } from './api'
+import { getApiForAccount } from './api/forge-api-factory'
 import { parseRemote, parseRepositoryIdentifier } from './remote-parsing'
 import { Account, isDotComAccount } from '../models/account'
 
@@ -18,7 +19,7 @@ async function canAccessRepositoryUsingAPI(
   owner: string,
   name: string
 ): Promise<boolean> {
-  const api = API.fromAccount(account)
+  const api = getApiForAccount(account)
   const repository = await api.fetchRepository(owner, name)
   if (repository) {
     return true

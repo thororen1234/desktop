@@ -67,4 +67,12 @@ export type MenuLabelsEvent = {
    * says "Show changes filter" or "Hide changes filter".
    */
   readonly isChangesFilterVisible?: boolean
+
+  /**
+   * The display name of the forge the current repository is hosted on, e.g.
+   * "GitHub", "GitHub Enterprise", or "codeberg.org" for a Gitea/Forgejo/
+   * Codeberg repository. Used to build the "View on X" / "Compare on X" /
+   * "View Branch on X" menu item labels. Omit to default to "GitHub".
+   */
+  readonly platformName?: string
 }

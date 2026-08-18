@@ -27,7 +27,7 @@ import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList } from './file-list'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
-import { getDotComAPIEndpoint } from '../../lib/api'
+import { getViewOnPlatformLabel } from '../../lib/view-on-platform'
 import { IMenuItem } from '../../lib/menu-item'
 import { IChangesetData } from '../../lib/git'
 import { IConstrainedValue } from '../../lib/app-state'
@@ -430,15 +430,10 @@ export class SelectedCommits extends React.Component<
       { type: 'separator' },
     ]
 
-    let viewOnGitHubLabel = 'View on GitHub'
     const gitHubRepository = repository.gitHubRepository
-
-    if (
-      gitHubRepository &&
-      gitHubRepository.endpoint !== getDotComAPIEndpoint()
-    ) {
-      viewOnGitHubLabel = 'View on GitHub Enterprise'
-    }
+    const viewOnGitHubLabel = gitHubRepository
+      ? getViewOnPlatformLabel(gitHubRepository)
+      : 'View on GitHub'
 
     items.push({
       label: viewOnGitHubLabel,

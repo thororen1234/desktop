@@ -6,6 +6,7 @@ import {
   Account,
   isDotComAccount,
   isEnterpriseAccount,
+  isGiteaAccount,
 } from '../../models/account'
 import { FoldoutType } from '../../lib/app-state'
 import {
@@ -15,7 +16,8 @@ import {
   sanitizeCloneName,
 } from '../../lib/remote-parsing'
 import { findAccountForRemoteURL } from '../../lib/find-account'
-import { API, IAPIRepository, IAPIRepositoryCloneInfo } from '../../lib/api'
+import { IAPIRepository, IAPIRepositoryCloneInfo } from '../../lib/api'
+import { getApiForAccount } from '../../lib/api/forge-api-factory'
 import { Dialog, DialogError, DialogFooter, DialogContent } from '../dialog'
 import { TabBar } from '../tab-bar'
 import { CloneRepositoryTab } from '../../models/clone-repository-tab'
@@ -101,6 +103,12 @@ interface ICloneRepositoryState {
   readonly enterpriseTabState: IGitHubTabState
 
   /**
+   * The persisted state of the CloneGitHubRepository component for
+   * a Gitea, Forgejo, or Codeberg account.
+   */
+  readonly giteaTabState: IGitHubTabState
+
+  /**
    * The persisted state of the CloneGenericRepository component.
    */
   readonly urlTabState: IUrlTabState
@@ -136,7 +144,7 @@ interface IUrlTabState extends IBaseTabState {
  * Persisted state for the CloneGitHubRepository component.
  */
 interface IGitHubTabState extends IBaseTabState {
-  readonly kind: 'dotComTabState' | 'enterpriseTabState'
+  readonly kind: 'dotComTabState' | 'enterpriseTabState' | 'giteaTabState'
 
   /**
    * The contents of the filter text box used to filter the list of
@@ -167,14 +175,22 @@ export class CloneRepository extends React.Component<
   )
 
   private getAccountsForTab = memoizeOne(
-    (tab: CloneRepositoryTab, accounts: ReadonlyArray<Account>) =>
-      tab === CloneRepositoryTab.Generic
-        ? []
-        : accounts.filter(
-            tab === CloneRepositoryTab.DotCom
-              ? isDotComAccount
-              : isEnterpriseAccount
+    (tab: CloneRepositoryTab, accounts: ReadonlyArray<Account>) => {
+      switch (tab) {
+        case CloneRepositoryTab.Generic:
+          return []
+        case CloneRepositoryTab.DotCom:
+          return accounts.filter(isDotComAccount)
+        case CloneRepositoryTab.Gitea:
+          return accounts.filter(isGiteaAccount)
+        case CloneRepositoryTab.Enterprise:
+          return accounts.filter(
+            a => isEnterpriseAccount(a) && !isGiteaAccount(a)
           )
+        default:
+          return assertNever(tab, `Unknown tab: ${tab}`)
+      }
+    }
   )
 
   public constructor(props: ICloneRepositoryProps) {
@@ -201,6 +217,12 @@ export class CloneRepository extends React.Component<
       },
       enterpriseTabState: {
         kind: 'enterpriseTabState',
+        filterText: '',
+        selectedItem: null,
+        ...initialBaseTabState,
+      },
+      giteaTabState: {
+        kind: 'giteaTabState',
         filterText: '',
         selectedItem: null,
         ...initialBaseTabState,
@@ -246,11 +268,13 @@ export class CloneRepository extends React.Component<
       ...this.state.enterpriseTabState,
       path: initialPath,
     }
+    const giteaTabState = { ...this.state.giteaTabState, path: initialPath }
     const urlTabState = { ...this.state.urlTabState, path: initialPath }
     this.setState({
       initialPath,
       dotComTabState,
       enterpriseTabState,
+      giteaTabState,
       urlTabState,
     })
 
@@ -276,6 +300,7 @@ export class CloneRepository extends React.Component<
         >
           <span id="dotcom-tab">GitHub.com</span>
           <span id="enterprise-tab">GitHub Enterprise</span>
+          <span id="gitea-tab">Other</span>
           <span id="url-tab">URL</span>
         </TabBar>
 
@@ -295,6 +320,8 @@ export class CloneRepository extends React.Component<
       ? 'dotcom-tab'
       : this.props.selectedTab === CloneRepositoryTab.Enterprise
       ? 'enterprise-tab'
+      : this.props.selectedTab === CloneRepositoryTab.Gitea
+      ? 'gitea-tab'
       : 'url-tab'
   }
 
@@ -356,7 +383,8 @@ export class CloneRepository extends React.Component<
         )
 
       case CloneRepositoryTab.DotCom:
-      case CloneRepositoryTab.Enterprise: {
+      case CloneRepositoryTab.Enterprise:
+      case CloneRepositoryTab.Gitea: {
         const tabState = this.getGitHubTabState(tab)
         const tabAccounts = this.getAccountsForTab(tab, this.props.accounts)
         const selectedAccount = this.getAccountForTab(tab)
@@ -418,12 +446,17 @@ export class CloneRepository extends React.Component<
   }
 
   private getGitHubTabState(
-    tab: CloneRepositoryTab.DotCom | CloneRepositoryTab.Enterprise
+    tab:
+      | CloneRepositoryTab.DotCom
+      | CloneRepositoryTab.Enterprise
+      | CloneRepositoryTab.Gitea
   ): IGitHubTabState {
     if (tab === CloneRepositoryTab.DotCom) {
       return this.state.dotComTabState
     } else if (tab === CloneRepositoryTab.Enterprise) {
       return this.state.enterpriseTabState
+    } else if (tab === CloneRepositoryTab.Gitea) {
+      return this.state.giteaTabState
     } else {
       return assertNever(tab, `Unknown tab: ${tab}`)
     }
@@ -434,6 +467,8 @@ export class CloneRepository extends React.Component<
       return this.state.dotComTabState
     } else if (tab === CloneRepositoryTab.Enterprise) {
       return this.state.enterpriseTabState
+    } else if (tab === CloneRepositoryTab.Gitea) {
+      return this.state.giteaTabState
     } else if (tab === CloneRepositoryTab.Generic) {
       return this.state.urlTabState
     } else {
@@ -487,6 +522,16 @@ export class CloneRepository extends React.Component<
         }),
         callback
       )
+    } else if (tab === CloneRepositoryTab.Gitea) {
+      this.setState(
+        prevState => ({
+          giteaTabState: {
+            ...prevState.giteaTabState,
+            ...state,
+          },
+        }),
+        callback
+      )
     } else if (tab === CloneRepositoryTab.Generic) {
       this.setState(
         prevState => ({
@@ -501,7 +546,10 @@ export class CloneRepository extends React.Component<
 
   private setGitHubTabState<K extends keyof IGitHubTabState>(
     tabState: Pick<IGitHubTabState, K>,
-    tab: CloneRepositoryTab.DotCom | CloneRepositoryTab.Enterprise
+    tab:
+      | CloneRepositoryTab.DotCom
+      | CloneRepositoryTab.Enterprise
+      | CloneRepositoryTab.Gitea
   ): void {
     if (tab === CloneRepositoryTab.DotCom) {
       this.setState(prevState => ({
@@ -510,6 +558,10 @@ export class CloneRepository extends React.Component<
     } else if (tab === CloneRepositoryTab.Enterprise) {
       this.setState(prevState => ({
         enterpriseTabState: merge(prevState.enterpriseTabState, tabState),
+      }))
+    } else if (tab === CloneRepositoryTab.Gitea) {
+      this.setState(prevState => ({
+        giteaTabState: merge(prevState.giteaTabState, tabState),
       }))
     } else {
       return assertNever(tab, `Unknown tab: ${tab}`)
@@ -539,6 +591,15 @@ export class CloneRepository extends React.Component<
             </div>
           </CallToAction>
         )
+      case CloneRepositoryTab.Gitea:
+        return (
+          <CallToAction actionTitle={signInTitle} onAction={this.signInGitea}>
+            <div>
+              If you use another Git host, like Gitea, Forgejo, or Codeberg,
+              sign in to it to get access to your repositories.
+            </div>
+          </CallToAction>
+        )
       case CloneRepositoryTab.Generic:
         return null
       default:
@@ -552,6 +613,10 @@ export class CloneRepository extends React.Component<
 
   private signInEnterprise = () => {
     this.props.dispatcher.showEnterpriseSignInDialog()
+  }
+
+  private signInGitea = () => {
+    this.props.dispatcher.showGiteaSignInDialog()
   }
 
   private onFilterTextChanged = (filterText: string) => {
@@ -738,7 +803,7 @@ export class CloneRepository extends React.Component<
 
     const account = await findAccountForRemoteURL(url, this.props.accounts)
     if (lastParsedIdentifier !== null && account !== null) {
-      const api = API.fromAccount(account)
+      const api = getApiForAccount(account)
       const { owner, name } = lastParsedIdentifier
       // Respect the user's preference if they provided an SSH URL
       const protocol = parseRemote(url)?.protocol

@@ -7,8 +7,10 @@ import {
   IAPIPullRequest,
   IAPIRefCheckRuns,
   IAPIRefStatus,
+  IAPIRepositoryCloneInfo,
   MaxResultsError,
 } from '../api'
+import { GitProtocol } from '../remote-parsing'
 import { parsedResponse, request, urlWithQueryString } from '../http'
 import { getGiteaHTMLURL } from './gitea-endpoint'
 
@@ -254,6 +256,60 @@ export class GiteaApi {
     } catch (e) {
       log.warn(`fetchRepository: an error occurred for '${owner}/${name}'`, e)
       return null
+    }
+  }
+
+  public async fetchRepositoryCloneInfo(
+    owner: string,
+    name: string,
+    protocol: GitProtocol | undefined
+  ): Promise<IAPIRepositoryCloneInfo | null> {
+    const response = await this.giteaRequest('GET', `repos/${owner}/${name}`)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    const repo = await parsedResponse<IGiteaRepository>(response)
+    return {
+      url: protocol === 'ssh' ? repo.ssh_url : repo.clone_url,
+      defaultBranch: repo.default_branch,
+    }
+  }
+
+  /**
+   * Fetch all repositories the user has explicit permission to access, in a
+   * streaming fashion. The callback is invoked once per page of results.
+   *
+   * Unlike GitHub, Gitea/Forgejo/Codeberg's `/user/repos` endpoint already
+   * returns everything the user can see (owned, collaborator, and org
+   * repos) in one paginated listing, so there's no need for the
+   * affiliation-sharded fan-out `API.fetchUserRepositories` does for
+   * GitHub.
+   */
+  public async fetchUserRepositories(
+    callback: (repos: ReadonlyArray<IAPIFullRepository>) => void
+  ) {
+    const itemsPerPage = 50
+    try {
+      for (let page = 1; ; page++) {
+        const response = await this.giteaRequest('GET', 'user/repos', {
+          page: String(page),
+          limit: String(itemsPerPage),
+        })
+        const items = await parsedResponse<ReadonlyArray<IGiteaRepository>>(
+          response
+        )
+        callback(items.map(repo => toIAPIRepository(repo, this.htmlBase)))
+        if (items.length < itemsPerPage) {
+          break
+        }
+      }
+    } catch (e) {
+      log.warn(
+        `fetchUserRepositories: failed with endpoint ${this.endpoint}`,
+        e
+      )
     }
   }
 

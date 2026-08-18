@@ -51,11 +51,21 @@ export function buildDefaultMenuTemplate({
   isStashedChangesVisible = false,
   askForConfirmationWhenStashingAllChanges = true,
   isChangesFilterVisible = true,
+  platformName = 'GitHub',
 }: MenuLabelsEvent): Electron.MenuItemConstructorOptions[] {
   contributionTargetDefaultBranch = truncateWithEllipsis(
     contributionTargetDefaultBranch,
     25
   )
+
+  // No `&` mnemonic on these three -- the platform name is arbitrary text
+  // (e.g. a Gitea/Forgejo/Codeberg hostname) and can't be guaranteed not to
+  // collide with another mnemonic already in use elsewhere in the same
+  // submenu (see: "&Compare on GitHub" colliding with "&Compare to branch").
+  // They still have full keyboard accelerators.
+  const viewOnPlatformLabel = `View on ${platformName}`
+  const compareOnPlatformLabel = `Compare on ${platformName}`
+  const viewBranchOnPlatformLabel = `View Branch on ${platformName}`
 
   const removeRepoLabel = askForConfirmationOnRepositoryRemoval
     ? confirmRepositoryRemovalLabel
@@ -342,7 +352,7 @@ export function buildDefaultMenuTemplate({
       separator,
       {
         id: 'view-repository-on-github',
-        label: __DARWIN__ ? 'View on GitHub' : '&View on GitHub',
+        label: viewOnPlatformLabel,
         accelerator: 'CmdOrCtrl+Shift+G',
         click: emit('view-repository-on-github'),
       },
@@ -477,13 +487,13 @@ export function buildDefaultMenuTemplate({
     },
     separator,
     {
-      label: __DARWIN__ ? 'Compare on GitHub' : 'Compare on &GitHub',
+      label: compareOnPlatformLabel,
       id: 'compare-on-github',
       accelerator: 'CmdOrCtrl+Shift+C',
       click: emit('compare-on-github'),
     },
     {
-      label: __DARWIN__ ? 'View Branch on GitHub' : 'View branch on GitHub',
+      label: viewBranchOnPlatformLabel,
       id: 'branch-on-github',
       accelerator: 'CmdOrCtrl+Alt+B',
       click: emit('branch-on-github'),

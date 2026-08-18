@@ -3,7 +3,7 @@ import * as React from 'react'
 import { commitGrammar, RepositoryListItem } from './repository-list-item'
 import {
   groupRepositories,
-  IRepositoryListItem,
+  RepositoryListRow,
   Repositoryish,
   RepositoryListGroup,
   getGroupKey,
@@ -79,7 +79,7 @@ interface IRepositoriesListProps {
 
 interface IRepositoriesListState {
   readonly newRepositoryMenuExpanded: boolean
-  readonly selectedItem: IRepositoryListItem | null
+  readonly selectedItem: RepositoryListRow | null
 }
 
 const RowHeight = 29
@@ -90,14 +90,17 @@ const RowHeight = 29
  */
 function findMatchingListItem(
   groups: ReadonlyArray<
-    IFilterListGroup<IRepositoryListItem, RepositoryListGroup>
+    IFilterListGroup<RepositoryListRow, RepositoryListGroup>
   >,
   selectedRepository: Repositoryish | null
 ) {
   if (selectedRepository !== null) {
     for (const group of groups) {
       for (const item of group.items) {
-        if (item.repository.id === selectedRepository.id) {
+        if (
+          item.kind === 'repository' &&
+          item.repository.id === selectedRepository.id
+        ) {
           return item
         }
       }
@@ -153,7 +156,15 @@ export class RepositoriesList extends React.Component<
     }
   }
 
-  private renderItem = (item: IRepositoryListItem, matches: IMatches) => {
+  private renderItem = (item: RepositoryListRow, matches: IMatches) => {
+    if (item.kind === 'owner-header') {
+      return (
+        <div key={item.id} className="repository-list-owner-header">
+          {item.owner}
+        </div>
+      )
+    }
+
     const repository = item.repository
     return (
       <RepositoryListItem
@@ -188,8 +199,12 @@ export class RepositoriesList extends React.Component<
   }
 
   private renderRowFocusTooltip = (
-    item: IRepositoryListItem
+    item: RepositoryListRow
   ): JSX.Element | string | null => {
+    if (item.kind === 'owner-header') {
+      return null
+    }
+
     const { repository, aheadBehind, changedFilesCount } = item
     const gitHubRepo =
       repository instanceof Repository ? repository.gitHubRepository : null
@@ -242,12 +257,12 @@ export class RepositoriesList extends React.Component<
 
   private getGroupLabel(group: RepositoryListGroup) {
     const { kind } = group
-    if (kind === 'enterprise') {
+    if (kind === 'enterprise' || kind === 'gitea') {
       return group.host
     } else if (kind === 'other') {
       return 'Other'
     } else if (kind === 'dotcom') {
-      return group.owner.login
+      return 'GitHub.com'
     } else if (kind === 'recent') {
       return 'Recent'
     } else {
@@ -271,7 +286,11 @@ export class RepositoriesList extends React.Component<
     )
   }
 
-  private onItemClick = (item: IRepositoryListItem) => {
+  private onItemClick = (item: RepositoryListRow) => {
+    if (item.kind !== 'repository') {
+      return
+    }
+
     const hasIndicator =
       item.changedFilesCount > 0 ||
       (item.aheadBehind !== null
@@ -282,10 +301,14 @@ export class RepositoriesList extends React.Component<
   }
 
   private onItemContextMenu = (
-    item: IRepositoryListItem,
+    item: RepositoryListRow,
     event: React.MouseEvent<HTMLDivElement>
   ) => {
     event.preventDefault()
+
+    if (item.kind !== 'repository') {
+      return
+    }
 
     const items = generateRepositoryListContextMenu({
       onRemoveRepository: this.props.onRemoveRepository,
@@ -311,11 +334,12 @@ export class RepositoriesList extends React.Component<
     showContextualMenu(items)
   }
 
-  private getItemAriaLabel = (item: IRepositoryListItem) => item.repository.name
+  private getItemAriaLabel = (item: RepositoryListRow) =>
+    item.kind === 'owner-header' ? item.owner : item.repository.name
   private getGroupAriaLabelGetter =
     (
       groups: ReadonlyArray<
-        IFilterListGroup<IRepositoryListItem, RepositoryListGroup>
+        IFilterListGroup<RepositoryListRow, RepositoryListGroup>
       >
     ) =>
     (group: number) =>
@@ -339,7 +363,7 @@ export class RepositoriesList extends React.Component<
 
     return (
       <div className="repository-list">
-        <SectionFilterList<IRepositoryListItem, RepositoryListGroup>
+        <SectionFilterList<RepositoryListRow, RepositoryListGroup>
           rowHeight={RowHeight}
           selectedItem={selectedItem}
           filterText={this.props.filterText}
@@ -364,7 +388,7 @@ export class RepositoriesList extends React.Component<
     )
   }
 
-  private onSelectionChanged = (selectedItem: IRepositoryListItem | null) => {
+  private onSelectionChanged = (selectedItem: RepositoryListRow | null) => {
     this.setState({ selectedItem })
   }
 

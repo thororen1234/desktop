@@ -146,6 +146,8 @@ import {
   deleteToken,
   IAPICreatePushProtectionBypassResponse,
 } from '../api'
+import { getApiForAccount } from '../api/forge-api-factory'
+import { getForgeDisplayName } from '../view-on-platform'
 import { shell } from '../app-shell'
 import {
   CompareAction,
@@ -1495,6 +1497,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
       const account = getAccountForEndpoint(this.accounts, gitHubRepo.endpoint)
 
       if (account === null) {
+        return
+      }
+
+      // Branch protection is a GitHub-only concept for now — Gitea/Forgejo/
+      // Codeberg have their own branch-protection APIs but there's no
+      // adapter for them yet, so skip rather than making a request against
+      // a GitHub-only endpoint.
+      if (account.source === 'gitea') {
         return
       }
 
@@ -2881,11 +2891,21 @@ export class AppStore extends TypedBaseStore<IAppState> {
       askForConfirmationOnForcePush,
     } = this
 
+    const gitHubRepository =
+      selectedRepository instanceof Repository
+        ? selectedRepository.gitHubRepository
+        : null
+
+    const platformName = gitHubRepository
+      ? getForgeDisplayName(gitHubRepository)
+      : undefined
+
     const labels: MenuLabelsEvent = {
       selectedShell: useCustomShell ? null : selectedShell,
       selectedExternalEditor: useCustomEditor ? null : selectedExternalEditor,
       askForConfirmationOnRepositoryRemoval,
       askForConfirmationOnForcePush,
+      platformName,
     }
 
     if (state === null) {
@@ -4886,7 +4906,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     const { account, owner, name } = match
     const { endpoint } = account
-    const api = API.fromAccount(account)
+    const api = getApiForAccount(account)
     const apiRepo = await api.fetchRepository(owner, name)
 
     if (apiRepo === null) {
@@ -4944,7 +4964,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       repository.gitHubRepository.endpoint
     )
 
-    if (account === null) {
+    if (account === null || account.source === 'gitea') {
       return
     }
 

@@ -3,7 +3,6 @@ const lastSuccessfulCheckKey = 'last-successful-update-check'
 import { Emitter, Disposable } from 'event-kit'
 
 import {
-  checkForUpdates,
   isRunningUnderARM64Translation,
   onAutoUpdaterCheckingForUpdate,
   onAutoUpdaterError,
@@ -197,30 +196,13 @@ class UpdateStore {
    *                       effectively disable the staggered releases system and
    *                       attempt to retrieve the latest available deployment.
    */
-  public async checkForUpdates(inBackground: boolean, skipGuidCheck: boolean) {
-    // An update has been downloaded and the app is waiting to be restarted.
-    // Checking for updates again may result in the running app being nuked
-    // when it finds a subsequent update on Windows, or the "Quit and Update"
-    // button to crash the app if in the subsequent check, there is no update
-    // available anymore due to a disabled update.
-    if (this.status === UpdateStatus.UpdateReady) {
-      this.updatePriorityUpdateStatus()
-      return
-    }
-
-    const updatesUrl = await this.getUpdatesUrl(skipGuidCheck)
-
-    if (updatesUrl === null) {
-      return
-    }
-
-    this.userInitiatedUpdate = !inBackground
-
-    const error = await checkForUpdates(updatesUrl)
-
-    if (error !== undefined) {
-      this.emitError(error)
-    }
+  public async checkForUpdates(
+    _inBackground: boolean,
+    _skipGuidCheck: boolean
+  ) {
+    // Update checking is disabled for this build -- it isn't distributed
+    // through the official update channel, so there's nothing for it to
+    // check against.
   }
 
   private async getUpdatesUrl(skipGuidCheck: boolean) {

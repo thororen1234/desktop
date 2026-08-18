@@ -4,7 +4,10 @@ import {
   IAPIPullRequest,
   IAPIRefCheckRuns,
   IAPIRefStatus,
+  IAPIRepository,
+  IAPIRepositoryCloneInfo,
 } from '../api'
+import { GitProtocol } from '../remote-parsing'
 
 /**
  * The subset of `API`'s (GitHub) surface that has an equivalent
@@ -21,6 +24,16 @@ export interface IForgeApi {
     owner: string,
     name: string
   ): Promise<IAPIFullRepository | null>
+
+  fetchRepositoryCloneInfo(
+    owner: string,
+    name: string,
+    protocol: GitProtocol | undefined
+  ): Promise<IAPIRepositoryCloneInfo | null>
+
+  fetchUserRepositories(
+    callback: (repos: ReadonlyArray<IAPIRepository>) => void
+  ): Promise<void>
 
   fetchAllOpenPullRequests(
     owner: string,

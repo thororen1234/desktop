@@ -9,7 +9,7 @@ import { DragData, DragType } from '../../models/drag-drop'
 import classNames from 'classnames'
 import memoizeOne from 'memoize-one'
 import { IMenuItem, showContextualMenu } from '../../lib/menu-item'
-import { getDotComAPIEndpoint } from '../../lib/api'
+import { getViewOnPlatformLabel } from '../../lib/view-on-platform'
 import { clipboard } from 'electron'
 import { RowIndexPath } from '../lib/list/list-row-index-path'
 import { assertNever } from '../../lib/fatal-error'
@@ -739,15 +739,10 @@ export class CommitList extends React.Component<
       this.props.canResetToCommits === true && isResettableCommit
     const canBeCheckedOut = row > 0 //Cannot checkout the current commit
 
-    let viewOnGitHubLabel = 'View on GitHub'
     const gitHubRepository = this.props.gitHubRepository
-
-    if (
-      gitHubRepository &&
-      gitHubRepository.endpoint !== getDotComAPIEndpoint()
-    ) {
-      viewOnGitHubLabel = 'View on GitHub Enterprise'
-    }
+    const viewOnGitHubLabel = gitHubRepository
+      ? getViewOnPlatformLabel(gitHubRepository)
+      : 'View on GitHub'
 
     const items: IMenuItem[] = []
 

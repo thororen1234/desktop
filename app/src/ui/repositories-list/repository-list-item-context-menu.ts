@@ -7,6 +7,7 @@ import {
   DefaultEditorLabel,
   DefaultShellLabel,
 } from '../lib/context-menu'
+import { getViewOnPlatformLabel } from '../../lib/view-on-platform'
 
 interface IRepositoryListItemContextMenuConfig {
   repository: Repositoryish
@@ -29,8 +30,12 @@ export const generateRepositoryListContextMenu = (
 ) => {
   const { repository } = config
   const missing = repository instanceof Repository && repository.missing
-  const github =
-    repository instanceof Repository && repository.gitHubRepository != null
+  const gitHubRepository =
+    repository instanceof Repository ? repository.gitHubRepository : null
+  const github = gitHubRepository != null
+  const viewOnPlatformLabel = gitHubRepository
+    ? getViewOnPlatformLabel(gitHubRepository)
+    : 'View on GitHub'
   const openInExternalEditor = config.externalEditorLabel
     ? `Open in ${config.externalEditorLabel}`
     : DefaultEditorLabel
@@ -51,7 +56,7 @@ export const generateRepositoryListContextMenu = (
     },
     { type: 'separator' },
     {
-      label: 'View on GitHub',
+      label: viewOnPlatformLabel,
       action: () => config.onViewOnGitHub(repository),
       enabled: github,
     },

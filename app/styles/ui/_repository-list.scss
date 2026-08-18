@@ -74,6 +74,22 @@
     white-space: nowrap;
   }
 
+  // A sub-header nested within a host group, labeling which account the
+  // repositories immediately following it belong to (see
+  // `IRepositoryListOwnerHeader` in group-repositories.ts).
+  .repository-list-owner-header {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 var(--spacing);
+    padding-left: calc(var(--spacing) * 2);
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    text-overflow: ellipsis;
+    overflow-x: hidden;
+    white-space: nowrap;
+  }
+
   .new-repository-button {
     flex-shrink: 0;
 
