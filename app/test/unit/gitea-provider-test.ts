@@ -181,12 +181,26 @@ describe('GiteaApi', () => {
   })
 })
 
-describe('fetchGiteaUser', () => {
-  it('builds an Account with source "gitea"', async () => {
-    const originalFetch = global.fetch
-    global.fetch = (async () => jsonResponse(giteaUserFixture)) as typeof fetch
+function withMockedFetch(
+  routes: { user: unknown; emails: unknown },
+  run: () => Promise<void>
+) {
+  const originalFetch = global.fetch
+  global.fetch = (async (input: RequestInfo | URL) => {
+    const url = input.toString()
+    return url.endsWith('/user/emails')
+      ? jsonResponse(routes.emails)
+      : jsonResponse(routes.user)
+  }) as typeof fetch
 
-    try {
+  return run().finally(() => {
+    global.fetch = originalFetch
+  })
+}
+
+describe('fetchGiteaUser', () => {
+  it('builds an Account with source "gitea"', () =>
+    withMockedFetch({ user: giteaUserFixture, emails: [] }, async () => {
       const account = await fetchGiteaUser(
         'https://codeberg.org/api/v1',
         'sometoken'
@@ -196,8 +210,37 @@ describe('fetchGiteaUser', () => {
       assert.equal(account.endpoint, 'https://codeberg.org/api/v1')
       assert.equal(account.token, 'sometoken')
       assert.equal(account.source, 'gitea')
-    } finally {
-      global.fetch = originalFetch
-    }
-  })
+    }))
+
+  it('uses the /user/emails list when it has entries', () =>
+    withMockedFetch(
+      {
+        user: giteaUserFixture,
+        emails: [
+          { email: 'octocat@example.com', primary: true, verified: true },
+          { email: 'other@example.com', primary: false, verified: true },
+        ],
+      },
+      async () => {
+        const account = await fetchGiteaUser(
+          'https://codeberg.org/api/v1',
+          'sometoken'
+        )
+
+        assert.equal(account.emails.length, 2)
+        assert(account.emails.some(e => e.email === 'other@example.com'))
+      }
+    ))
+
+  it('falls back to the primary /user email when /user/emails is empty', () =>
+    withMockedFetch({ user: giteaUserFixture, emails: [] }, async () => {
+      const account = await fetchGiteaUser(
+        'https://codeberg.org/api/v1',
+        'sometoken'
+      )
+
+      assert.equal(account.emails.length, 1)
+      assert.equal(account.emails[0].email, giteaUserFixture.email)
+      assert.equal(account.emails[0].verified, true)
+    }))
 })

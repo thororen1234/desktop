@@ -10,6 +10,10 @@ import {
   getEnterpriseAPIURL,
 } from '../../src/lib/api'
 import { Account } from '../../src/models/account'
+import { registerGiteaEndpoint } from '../../src/lib/endpoint-capabilities'
+
+const codebergEndpoint = 'https://codeberg.org/api/v1'
+registerGiteaEndpoint(codebergEndpoint)
 
 describe('emails', () => {
   describe('lookupPreferredEmail', () => {
@@ -205,6 +209,29 @@ describe('emails', () => {
       )
     })
 
+    it('returns a stealth email address for empty list from Gitea/Forgejo/Codeberg', () => {
+      const account = new Account(
+        'shiftkey',
+        codebergEndpoint,
+        '',
+        [],
+        '',
+        1234,
+        'Caps Lock',
+        'free',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'gitea'
+      )
+
+      assert.equal(
+        lookupPreferredEmail(account),
+        '1234+shiftkey@noreply.codeberg.org'
+      )
+    })
+
     it('uses first email if nothing special found', () => {
       const emails: IAPIEmail[] = [
         {
@@ -308,6 +335,38 @@ describe('emails', () => {
       assert.equal(
         isAttributableEmailFor(account, '123+niik@users.noreply.github.com'),
         true
+      )
+    })
+
+    it('considers stealth emails for Gitea/Forgejo/Codeberg', () => {
+      const account = new Account(
+        'niik',
+        codebergEndpoint,
+        '',
+        [],
+        '',
+        123,
+        '',
+        'free',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        'gitea'
+      )
+
+      assert.equal(
+        isAttributableEmailFor(account, 'niik@noreply.codeberg.org'),
+        true
+      )
+      assert.equal(
+        isAttributableEmailFor(account, '123+niik@noreply.codeberg.org'),
+        true
+      )
+      // Shouldn't be fooled by GitHub's noreply format for a Gitea account.
+      assert.equal(
+        isAttributableEmailFor(account, '123+niik@users.noreply.github.com'),
+        false
       )
     })
 

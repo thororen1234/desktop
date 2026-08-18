@@ -1,6 +1,6 @@
 import { IAPIEmail } from './api'
 import { Account } from '../models/account'
-import { isGHES } from './endpoint-capabilities'
+import { isGHES, isGitea } from './endpoint-capabilities'
 
 /**
  * Lookup a suitable email address to display in the application, based on the
@@ -48,14 +48,22 @@ function isEmailPublic(email: IAPIEmail): boolean {
 }
 
 /**
- * Returns the stealth email host name for a given endpoint. The stealth
- * email host is hardcoded to the subdomain users.noreply under the
- * endpoint host.
+ * Returns the stealth email host name for a given endpoint.
+ *
+ * GitHub.com/GHES use the subdomain `users.noreply` under the endpoint
+ * host. Gitea/Forgejo/Codeberg use their own convention, just `noreply`
+ * under the instance host (no `users.` prefix) -- see `GetPlaceholderEmail`
+ * in Gitea's `models/user/user.go`.
  */
-const getStealthEmailHostForEndpoint = (endpoint: string) =>
-  isGHES(endpoint)
+const getStealthEmailHostForEndpoint = (endpoint: string) => {
+  if (isGitea(endpoint)) {
+    return `noreply.${new URL(endpoint).hostname}`
+  }
+
+  return isGHES(endpoint)
     ? `users.noreply.${new URL(endpoint).hostname}`
     : 'users.noreply.github.com'
+}
 
 /**
  * Generate a legacy stealth email address for the user
@@ -133,12 +141,14 @@ export const isAttributableEmailFor = (account: Account, email: string) => {
 
 /**
  * A regular expression meant to match both the legacy format GitHub.com
- * stealth email address and the modern format (login@ vs id+login@).
+ * stealth email address and the modern format (login@ vs id+login@), as
+ * well as Gitea/Forgejo/Codeberg's noreply format (which omits the
+ * `users.` prefix GitHub uses).
  *
  * Yields two capture groups, the first being an optional capture of the
  * user id and the second being the mandatory login.
  */
-const StealthEmailRegexp = /^(?:(\d+)\+)?(.+?)@(users\.noreply\..+)$/i
+const StealthEmailRegexp = /^(?:(\d+)\+)?(.+?)@((?:users\.)?noreply\..+)$/i
 
 export const parseStealthEmail = (email: string, endpoint: string) => {
   const stealthEmailHost = getStealthEmailHostForEndpoint(endpoint)

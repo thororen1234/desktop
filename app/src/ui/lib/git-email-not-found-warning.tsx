@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Account, isDotComAccount } from '../../models/account'
+import { Account } from '../../models/account'
 import { LinkButton } from './link-button'
 import { isAttributableEmailFor } from '../../lib/email'
 import { Octicon } from '../octicons'
@@ -87,13 +87,10 @@ export class GitEmailNotFoundWarning extends React.Component<IGitEmailNotFoundWa
 
   private getAccountTypeDescription() {
     if (this.props.accounts.length === 1) {
-      const accountType = isDotComAccount(this.props.accounts[0])
-        ? 'GitHub'
-        : 'GitHub Enterprise'
-
-      return `your ${accountType} account`
+      return `your ${this.props.accounts[0].friendlyEndpoint} account`
     }
 
-    return 'either of your GitHub.com nor GitHub Enterprise accounts'
+    const endpoints = this.props.accounts.map(a => a.friendlyEndpoint)
+    return `any of your accounts (${endpoints.join(', ')})`
   }
 }

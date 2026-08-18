@@ -1,11 +1,7 @@
 import * as React from 'react'
 import { TextBox } from './text-box'
 import { Row } from './row'
-import {
-  Account,
-  isDotComAccount,
-  isEnterpriseAccount,
-} from '../../models/account'
+import { Account, isDotComAccount } from '../../models/account'
 import { Select } from './select'
 import { GitEmailNotFoundWarning } from './git-email-not-found-warning'
 import { getStealthEmailForAccount } from '../../lib/email'
@@ -169,14 +165,11 @@ export class GitConfigUserForm extends React.Component<
       return null
     }
 
-    // When the user signed in both accounts, show a suffix to differentiate
-    // the origin of each email address
-    const shouldShowAccountType =
-      this.props.accounts.some(isDotComAccount) &&
-      this.props.accounts.some(isEnterpriseAccount)
+    // When the user signed in to more than one account, show a suffix to
+    // differentiate the origin of each email address.
+    const shouldShowAccountType = this.props.accounts.length > 1
 
-    const accountSuffix = (account: Account) =>
-      isDotComAccount(account) ? '(GitHub.com)' : '(GitHub Enterprise)'
+    const accountSuffix = (account: Account) => `(${account.friendlyEndpoint})`
 
     return (
       <Row>

@@ -504,10 +504,21 @@ export async function fetchGiteaUser(
   token: string
 ): Promise<Account> {
   const api = new GiteaApi(endpoint, token)
-  const [user, emails] = await Promise.all([
+  const [user, fetchedEmails] = await Promise.all([
     api.fetchAccount(),
     api.fetchEmails(),
   ])
+
+  // `/user/emails` can come back empty on some instances/tokens even though
+  // the account has a primary email -- fall back to the primary email
+  // already present on the `/user` response so the account always has at
+  // least one usable email (e.g. for the git config author-email picker).
+  const emails =
+    fetchedEmails.length > 0
+      ? fetchedEmails
+      : user.email
+      ? [{ email: user.email, verified: true, primary: true, visibility: null }]
+      : []
 
   return new Account(
     user.login,
