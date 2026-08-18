@@ -97,6 +97,10 @@ export const getStealthEmailForAccount = (account: Account) =>
  *
  * Ex: 123456+desktop@users.noreply.github.com
  *
+ * Gitea/Forgejo/Codeberg only support the legacy format without
+ * the user id prefix (i.e. `login@noreply.host`), so for those
+ * endpoints this is equivalent to getLegacyStealthEmailForUser.
+ *
  * @param id       The numeric user id as returned by the endpoint
  *                 API. See getLegacyStealthEmailFor if no user id
  *                 is available.
@@ -111,6 +115,10 @@ export function getStealthEmailForUser(
   endpoint: string
 ) {
   const stealthEmailHost = getStealthEmailHostForEndpoint(endpoint)
+  // Gitea/Forgejo/Codeberg only support `login@noreply.host`, not `id+login@noreply.host`
+  if (isGitea(endpoint)) {
+    return `${login}@${stealthEmailHost}`
+  }
   return `${id}+${login}@${stealthEmailHost}`
 }
 

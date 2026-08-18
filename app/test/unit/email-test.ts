@@ -228,7 +228,7 @@ describe('emails', () => {
 
       assert.equal(
         lookupPreferredEmail(account),
-        '1234+shiftkey@noreply.codeberg.org'
+        'shiftkey@noreply.codeberg.org'
       )
     })
 
@@ -359,9 +359,10 @@ describe('emails', () => {
         isAttributableEmailFor(account, 'niik@noreply.codeberg.org'),
         true
       )
+      // Codeberg only supports username@noreply format, not id+username@noreply
       assert.equal(
         isAttributableEmailFor(account, '123+niik@noreply.codeberg.org'),
-        true
+        false
       )
       // Shouldn't be fooled by GitHub's noreply format for a Gitea account.
       assert.equal(
