@@ -6,6 +6,8 @@ import {
   IEndpointEntryState,
   IAuthenticationState,
   IExistingAccountWarning,
+  IGiteaEndpointEntryState,
+  ITokenEntryState,
 } from '../../lib/stores'
 import { assertNever } from '../../lib/fatal-error'
 import { Row } from '../lib/row'
@@ -15,6 +17,7 @@ import { Dialog, DialogError, DialogContent, DialogFooter } from '../dialog'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { Ref } from '../lib/ref'
 import { getHTMLURL } from '../../lib/api'
+import { LinkButton } from '../lib/link-button'
 
 interface ISignInProps {
   readonly dispatcher: Dispatcher
@@ -26,6 +29,7 @@ interface ISignInProps {
 
 interface ISignInState {
   readonly endpoint: string
+  readonly token: string
 }
 
 const SignInWithBrowserTitle = __DARWIN__
@@ -50,6 +54,7 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
 
     this.state = {
       endpoint: '',
+      token: '',
     }
   }
 
@@ -97,6 +102,12 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
       case SignInStep.Authentication:
         this.props.dispatcher.requestBrowserAuthentication()
         break
+      case SignInStep.GiteaEndpointEntry:
+        this.props.dispatcher.setSignInGiteaEndpoint(this.state.endpoint)
+        break
+      case SignInStep.TokenEntry:
+        this.props.dispatcher.setSignInToken(this.state.token)
+        break
       case SignInStep.Success:
         this.onDismissed()
         break
@@ -107,6 +118,18 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
 
   private onEndpointChanged = (endpoint: string) => {
     this.setState({ endpoint })
+  }
+
+  private onTokenChanged = (token: string) => {
+    this.setState({ token })
+  }
+
+  private onGiteaSignInInstead = () => {
+    this.props.dispatcher.beginGiteaSignIn()
+  }
+
+  private onEnterpriseSignInInstead = () => {
+    this.props.dispatcher.beginEnterpriseSignIn()
   }
 
   private renderFooter(): JSX.Element | null {
@@ -134,6 +157,14 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
         break
       case SignInStep.Authentication:
         primaryButtonText = continueWithBrowserLabel
+        break
+      case SignInStep.GiteaEndpointEntry:
+        disableSubmit = this.state.endpoint.length === 0
+        primaryButtonText = 'Continue'
+        break
+      case SignInStep.TokenEntry:
+        disableSubmit = this.state.token.length === 0
+        primaryButtonText = 'Sign in'
         break
       default:
         return assertNever(state, `Unknown sign in step ${stepKind}`)
@@ -176,6 +207,56 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
             placeholder="https://example.ghe.com"
           />
         </Row>
+        <p>
+          Not GitHub Enterprise?{' '}
+          <LinkButton onClick={this.onGiteaSignInInstead}>
+            Sign in to another Git host instead
+          </LinkButton>
+          .
+        </p>
+      </DialogContent>
+    )
+  }
+
+  private renderGiteaEndpointEntryStep(state: IGiteaEndpointEntryState) {
+    return (
+      <DialogContent>
+        <Row>
+          <TextBox
+            label="Instance address"
+            value={this.state.endpoint}
+            onValueChanged={this.onEndpointChanged}
+            placeholder="https://codeberg.org"
+          />
+        </Row>
+        <p>
+          Signing in to GitHub Enterprise instead?{' '}
+          <LinkButton onClick={this.onEnterpriseSignInInstead}>
+            Sign in there
+          </LinkButton>
+          .
+        </p>
+      </DialogContent>
+    )
+  }
+
+  private renderTokenEntryStep(state: ITokenEntryState) {
+    return (
+      <DialogContent>
+        <p>
+          Create a personal access token on{' '}
+          <Ref>{new URL(state.endpoint).hostname}</Ref> and paste it below.
+          Desktop needs a token with access to your repositories, issues, and
+          pull requests.
+        </p>
+        <Row>
+          <TextBox
+            label="Personal access token"
+            value={this.state.token}
+            onValueChanged={this.onTokenChanged}
+            type="password"
+          />
+        </Row>
       </DialogContent>
     )
   }
@@ -213,6 +294,10 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
         return this.renderExistingAccountWarningStep(state)
       case SignInStep.Authentication:
         return this.renderAuthenticationStep(state)
+      case SignInStep.GiteaEndpointEntry:
+        return this.renderGiteaEndpointEntryStep(state)
+      case SignInStep.TokenEntry:
+        return this.renderTokenEntryStep(state)
       case SignInStep.Success:
         return null
       default:

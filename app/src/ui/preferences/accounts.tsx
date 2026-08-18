@@ -3,6 +3,7 @@ import {
   Account,
   isDotComAccount,
   isEnterpriseAccount,
+  isGiteaAccount,
 } from '../../models/account'
 import { IAvatarUser } from '../../models/avatar'
 import { lookupPreferredEmail } from '../../lib/email'
@@ -19,12 +20,14 @@ interface IAccountsProps {
 
   readonly onDotComSignIn: () => void
   readonly onEnterpriseSignIn: () => void
+  readonly onGiteaSignIn: () => void
   readonly onLogout: (account: Account) => void
 }
 
 enum SignInType {
   DotCom,
   Enterprise,
+  Gitea,
 }
 
 export class Accounts extends React.Component<IAccountsProps, {}> {
@@ -41,12 +44,17 @@ export class Accounts extends React.Component<IAccountsProps, {}> {
 
         <h2>GitHub Enterprise</h2>
         {this.renderMultipleEnterpriseAccounts()}
+
+        <h2>Other Git hosts</h2>
+        {this.renderMultipleGiteaAccounts()}
       </DialogContent>
     )
   }
 
   private renderMultipleEnterpriseAccounts() {
-    const enterpriseAccounts = this.props.accounts.filter(isEnterpriseAccount)
+    const enterpriseAccounts = this.props.accounts.filter(
+      a => isEnterpriseAccount(a) && !isGiteaAccount(a)
+    )
 
     return (
       <>
@@ -58,6 +66,25 @@ export class Accounts extends React.Component<IAccountsProps, {}> {
         ) : (
           <Button onClick={this.props.onEnterpriseSignIn}>
             Add GitHub Enterprise account
+          </Button>
+        )}
+      </>
+    )
+  }
+
+  private renderMultipleGiteaAccounts() {
+    const giteaAccounts = this.props.accounts.filter(isGiteaAccount)
+
+    return (
+      <>
+        {giteaAccounts.map(account => {
+          return this.renderAccount(account, SignInType.Gitea)
+        })}
+        {giteaAccounts.length === 0 ? (
+          this.renderSignIn(SignInType.Gitea)
+        ) : (
+          <Button onClick={this.props.onGiteaSignIn}>
+            Add other Git host account
           </Button>
         )}
       </>
@@ -114,6 +141,10 @@ export class Accounts extends React.Component<IAccountsProps, {}> {
     this.props.onEnterpriseSignIn()
   }
 
+  private onGiteaSignIn = () => {
+    this.props.onGiteaSignIn()
+  }
+
   private renderSignIn(type: SignInType) {
     const signInTitle = __DARWIN__ ? 'Sign Into' : 'Sign into'
     switch (type) {
@@ -141,6 +172,18 @@ export class Accounts extends React.Component<IAccountsProps, {}> {
             <div>
               If you are using GitHub Enterprise at work, sign in to it to get
               access to your repositories.
+            </div>
+          </CallToAction>
+        )
+      case SignInType.Gitea:
+        return (
+          <CallToAction
+            actionTitle={signInTitle + ' Other Git Host'}
+            onAction={this.onGiteaSignIn}
+          >
+            <div>
+              If you use another Git host, like Gitea, Forgejo, or Codeberg,
+              sign in to it to get access to your repositories.
             </div>
           </CallToAction>
         )

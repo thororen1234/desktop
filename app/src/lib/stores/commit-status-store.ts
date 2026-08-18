@@ -6,6 +6,7 @@ import xor from 'lodash/xor'
 import { Account } from '../../models/account'
 import { GitHubRepository } from '../../models/github-repository'
 import { API, getAccountForEndpoint, IAPICheckSuite } from '../api'
+import { getApiForAccount } from '../api/forge-api-factory'
 import {
   apiCheckRunToRefCheck,
   apiStatusToRefCheck,
@@ -280,7 +281,7 @@ export class CommitStatusStore {
       return
     }
 
-    const api = API.fromAccount(account)
+    const api = getApiForAccount(account)
 
     const [statuses, checkRuns] = await Promise.all([
       api.fetchCombinedRefStatus(owner, name, ref),
@@ -315,7 +316,11 @@ export class CommitStatusStore {
     }
 
     let checksWithActions = null
-    if (subscription.branchName !== undefined) {
+    if (subscription.branchName !== undefined && account.source !== 'gitea') {
+      // Gitea/Forgejo/Codeberg checks don't have a GitHub Actions
+      // workflow-run/job-log equivalent wired up yet (see
+      // `GiteaApi.fetchRefCheckRuns`), so skip the GitHub Actions-specific
+      // enrichment round-trip entirely rather than let it 404.
       checksWithActions = await this.getAndMapActionWorkflowRunsToCheckRuns(
         checks,
         key,

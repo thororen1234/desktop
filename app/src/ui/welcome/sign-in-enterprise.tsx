@@ -3,13 +3,17 @@ import { WelcomeStep } from './welcome'
 import { Button } from '../lib/button'
 import { SignIn } from '../lib/sign-in'
 import { Dispatcher } from '../dispatcher'
-import { SignInState } from '../../lib/stores'
+import { SignInState, SignInStep } from '../../lib/stores'
 
 interface ISignInEnterpriseProps {
   readonly dispatcher: Dispatcher
   readonly advance: (step: WelcomeStep) => void
   readonly signInState: SignInState | null
 }
+
+const isGiteaStep = (state: SignInState) =>
+  state.kind === SignInStep.GiteaEndpointEntry ||
+  state.kind === SignInStep.TokenEntry
 
 /** The Welcome flow step to login to an Enterprise instance. */
 export class SignInEnterprise extends React.Component<
@@ -23,12 +27,13 @@ export class SignInEnterprise extends React.Component<
       return null
     }
 
+    const title = isGiteaStep(state)
+      ? 'Sign in to another Git host'
+      : 'Sign in to your GitHub Enterprise'
+
     return (
-      <section
-        id="sign-in-enterprise"
-        aria-label="Sign in to your GitHub Enterprise"
-      >
-        <h1 className="welcome-title">Sign in to your GitHub Enterprise</h1>
+      <section id="sign-in-enterprise" aria-label={title}>
+        <h1 className="welcome-title">{title}</h1>
 
         <SignIn signInState={state} dispatcher={this.props.dispatcher}>
           <Button onClick={this.cancel}>Cancel</Button>

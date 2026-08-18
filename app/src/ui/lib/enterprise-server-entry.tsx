@@ -30,6 +30,12 @@ interface IEnterpriseServerEntryProps {
 
   /** An array of additional buttons to render after the "Continue" button. */
   readonly additionalButtons?: ReadonlyArray<JSX.Element>
+
+  /** The label for the address text box, defaults to "Enterprise address" */
+  readonly label?: string
+
+  /** The placeholder for the address text box, defaults to a GHE example */
+  readonly placeholder?: string
 }
 
 interface IEnterpriseServerEntryState {
@@ -54,11 +60,11 @@ export class EnterpriseServerEntry extends React.Component<
     return (
       <Form onSubmit={this.onSubmit}>
         <TextBox
-          label="Enterprise address"
+          label={this.props.label ?? 'Enterprise address'}
           autoFocus={true}
           disabled={disableEntry}
           onValueChanged={this.onServerAddressChanged}
-          placeholder="https://example.ghe.com"
+          placeholder={this.props.placeholder ?? 'https://example.ghe.com'}
         />
 
         {this.props.error ? <Errors>{this.props.error.message}</Errors> : null}

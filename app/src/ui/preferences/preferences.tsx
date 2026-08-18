@@ -479,6 +479,11 @@ export class Preferences extends React.Component<
     this.props.dispatcher.showEnterpriseSignInDialog()
   }
 
+  private onGiteaSignIn = () => {
+    this.props.onDismissed()
+    this.props.dispatcher.showGiteaSignInDialog()
+  }
+
   private onCopilotSignIn = () => {
     this.setState({ selectedIndex: PreferencesTab.Accounts })
   }
@@ -537,6 +542,7 @@ export class Preferences extends React.Component<
             accounts={this.props.accounts}
             onDotComSignIn={this.onDotComSignIn}
             onEnterpriseSignIn={this.onEnterpriseSignIn}
+            onGiteaSignIn={this.onGiteaSignIn}
             onLogout={this.onLogout}
           />
         )

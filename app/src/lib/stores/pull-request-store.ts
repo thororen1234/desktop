@@ -8,7 +8,9 @@ import {
 } from '../databases/pull-request-database'
 import { GitHubRepository } from '../../models/github-repository'
 import { Account } from '../../models/account'
-import { API, IAPIPullRequest, MaxResultsError } from '../api'
+import { IAPIPullRequest, MaxResultsError } from '../api'
+import { getApiForAccount } from '../api/forge-api-factory'
+import { IForgeApi } from '../api/forge-api'
 import { fatalError } from '../fatal-error'
 import { RepositoriesStore } from './repositories-store'
 import { PullRequest, PullRequestRef } from '../../models/pull-request'
@@ -82,7 +84,7 @@ export class PullRequestStore {
     repo: GitHubRepository,
     account: Account
   ) {
-    const api = API.fromAccount(account)
+    const api = getApiForAccount(account)
     const lastUpdatedAt = await this.db.getLastUpdated(repo)
 
     // If we don't have a lastUpdatedAt that mean we haven't fetched any PRs
@@ -103,7 +105,7 @@ export class PullRequestStore {
   }
 
   private async fetchAndStoreOpenPullRequests(
-    api: API,
+    api: IForgeApi,
     repository: GitHubRepository
   ) {
     const { name, owner } = getNameWithOwner(repository)
@@ -112,7 +114,7 @@ export class PullRequestStore {
   }
 
   private async fetchAndStoreUpdatedPullRequests(
-    api: API,
+    api: IForgeApi,
     repository: GitHubRepository,
     lastUpdatedAt: Date
   ) {

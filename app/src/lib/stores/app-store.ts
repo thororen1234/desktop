@@ -7966,6 +7966,18 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.signInStore.authenticateWithBrowser()
   }
 
+  public _beginGiteaSignIn(resultCallback?: (result: SignInResult) => void) {
+    return this.signInStore.beginGiteaSignIn(resultCallback)
+  }
+
+  public _setSignInGiteaEndpoint(url: string): Promise<void> {
+    return this.signInStore.setGiteaEndpoint(url)
+  }
+
+  public _setSignInToken(token: string): Promise<void> {
+    return this.signInStore.setToken(token)
+  }
+
   public async _setAppFocusState(isFocused: boolean): Promise<void> {
     if (this.appIsFocused !== isFocused) {
       this.appIsFocused = isFocused
@@ -8565,7 +8577,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
       )
 
     const compareString = `${encodedBaseBranch}${encodedCompareBranch}`
-    const baseURL = `${htmlURL}/pull/new/${compareString}`
+    const account = getAccountForEndpoint(
+      this.accounts,
+      gitHubRepository.endpoint
+    )
+    // Gitea/Forgejo/Codeberg don't have GitHub's `/pull/new/` shortcut route,
+    // just the underlying compare view both platforms share.
+    const newPRPathSegment =
+      account?.source === 'gitea' ? 'compare' : 'pull/new'
+    const baseURL = `${htmlURL}/${newPRPathSegment}/${compareString}`
 
     await this._openInBrowser(baseURL)
   }

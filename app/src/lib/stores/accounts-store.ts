@@ -1,11 +1,18 @@
 import { IDataStore, ISecureStore } from './stores'
 import { getKeyForAccount } from '../auth'
-import { Account, isDotComAccount } from '../../models/account'
+import { Account, AccountSource, isDotComAccount } from '../../models/account'
 import { fetchUser, EmailVisibility, getEnterpriseAPIURL } from '../api'
+import { fetchGiteaUser } from '../api/gitea-provider'
 import { fatalError } from '../fatal-error'
 import { TypedBaseStore } from './base-store'
-import { isGHE } from '../endpoint-capabilities'
+import { isGHE, registerGiteaEndpoint } from '../endpoint-capabilities'
 import { compare, compareDescending } from '../compare'
+
+const registerGiteaAccountEndpoint = (account: Account) => {
+  if (account.source === 'gitea') {
+    registerGiteaEndpoint(account.endpoint)
+  }
+}
 
 // Ensure that GitHub.com accounts appear first followed by Enterprise
 // accounts, sorted by the order in which they were added.
@@ -60,6 +67,7 @@ interface IAccount {
   readonly id: number
   readonly name: string
   readonly plan?: string
+  readonly source?: AccountSource
 }
 
 /** The store for logged in accounts. */
@@ -94,6 +102,8 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
    */
   public async addAccount(account: Account): Promise<Account | null> {
     await this.loadingPromise
+
+    registerGiteaAccountEndpoint(account)
 
     try {
       const key = getKeyForAccount(account)
@@ -225,8 +235,14 @@ export class AccountsStore extends TypedBaseStore<ReadonlyArray<Account>> {
         account.avatarURL,
         account.id,
         account.name,
-        account.plan
+        account.plan,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        account.source ?? 'github'
       )
+      registerGiteaAccountEndpoint(accountWithoutToken)
 
       const key = getKeyForAccount(accountWithoutToken)
       try {
@@ -265,5 +281,7 @@ async function updatedAccount(account: Account): Promise<Account> {
     )
   }
 
-  return fetchUser(account.endpoint, account.token)
+  return account.source === 'gitea'
+    ? fetchGiteaUser(account.endpoint, account.token)
+    : fetchUser(account.endpoint, account.token)
 }

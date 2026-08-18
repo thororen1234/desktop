@@ -257,7 +257,7 @@ export interface IAPIIdentity {
  * not cover scenarios where privacy settings of a user control what information
  * is returned.
  */
-interface IAPIFullIdentity {
+export interface IAPIFullIdentity {
   readonly id: number
   readonly html_url: string
   readonly login: string

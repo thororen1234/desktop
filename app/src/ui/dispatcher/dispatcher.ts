@@ -1711,6 +1711,33 @@ export class Dispatcher {
     return this.appStore._setSignInEndpoint(url)
   }
 
+  /**
+   * Initiate a sign in flow for a Gitea, Forgejo, or Codeberg instance.
+   * This will put the store in the GiteaEndpointEntry step ready to
+   * receive the url to the instance.
+   */
+  public beginGiteaSignIn(resultCallback?: (result: SignInResult) => void) {
+    this.appStore._beginGiteaSignIn(resultCallback)
+  }
+
+  /**
+   * Attempt to advance from the GiteaEndpointEntry step with the given
+   * instance url. This method must only be called when the store is in
+   * that step or an error will be thrown.
+   */
+  public setSignInGiteaEndpoint(url: string): Promise<void> {
+    return this.appStore._setSignInGiteaEndpoint(url)
+  }
+
+  /**
+   * Attempt to authenticate using a personal access token for the endpoint
+   * set during the TokenEntry step. This method must only be called when
+   * the store is in that step or an error will be thrown.
+   */
+  public setSignInToken(token: string): Promise<void> {
+    return this.appStore._setSignInToken(token)
+  }
+
   public beginDotComSignIn(resultCallback: (result: SignInResult) => void) {
     this.appStore._beginDotComSignIn(resultCallback)
   }
@@ -1791,6 +1818,17 @@ export class Dispatcher {
       this.appStore._setSignInEndpoint(endpoint)
     }
 
+    this.appStore._showPopup({ type: PopupType.SignIn })
+  }
+
+  /**
+   * Launch a sign in dialog for authenticating a user with a Gitea,
+   * Forgejo, or Codeberg instance.
+   */
+  public async showGiteaSignInDialog(
+    resultCallback?: (result: SignInResult) => void
+  ): Promise<void> {
+    this.appStore._beginGiteaSignIn(resultCallback)
     this.appStore._showPopup({ type: PopupType.SignIn })
   }
 

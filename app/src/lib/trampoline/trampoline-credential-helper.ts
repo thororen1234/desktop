@@ -27,6 +27,7 @@ import {
 import { urlWithoutCredentials } from './url-without-credentials'
 import { trampolineUIHelper as ui } from './trampoline-ui-helper'
 import { getAPIEndpoint, isGitHubHost } from '../api'
+import { getGiteaAPIURL } from '../api/gitea-endpoint'
 import { isDotCom, isGHE, isGist } from '../endpoint-capabilities'
 
 type Credential = Map<string, string>
@@ -102,7 +103,10 @@ async function getCredential(cred: Credential, store: Store, token: string) {
   const accounts = await store.getAll()
 
   const endpoint = `${getCredentialUrl(cred)}`
-  const apiEndpoint = getAPIEndpoint(endpoint)
+  const apiEndpoint =
+    endpointKind === 'gitea'
+      ? getGiteaAPIURL(endpoint)
+      : getAPIEndpoint(endpoint)
 
   // If it appears as if the endpoint is a GitHub host and we don't have an
   // account for that endpoint then we should prompt the user to sign in.
@@ -150,6 +154,19 @@ const getEndpointKind = async (cred: Credential, store: Store) => {
     return 'ghe.com'
   }
 
+  // If we already have a Desktop account signed in for this host (GitHub,
+  // Gitea, Forgejo, or Codeberg), prefer it over the WWW-Authenticate
+  // heuristics below. Otherwise a host the user has already authenticated
+  // through Desktop would fall through to the generic OS credential prompt
+  // just because Gitea/Forgejo report a `realm="Gitea"` challenge.
+  const existingAccount = await findGitHubTrampolineAccount(store, endpoint)
+  if (existingAccount) {
+    if (existingAccount.source === 'gitea') {
+      return 'gitea'
+    }
+    return isDotCom(existingAccount.endpoint) ? 'github.com' : 'enterprise'
+  }
+
   // When Git attempts to authenticate with a host it captures any
   // WWW-Authenticate headers and forwards them to the credential helper. We
   // use them as a happy-path to determine if the host is a GitHub host without
@@ -162,11 +179,6 @@ const getEndpointKind = async (cred: Credential, store: Store) => {
         return 'generic'
       }
     }
-  }
-
-  const existingAccount = await findGitHubTrampolineAccount(store, endpoint)
-  if (existingAccount) {
-    return isDotCom(existingAccount.endpoint) ? 'github.com' : 'enterprise'
   }
 
   // All GitHub hosts use HTTPS, so if the protocol is not HTTPS we can

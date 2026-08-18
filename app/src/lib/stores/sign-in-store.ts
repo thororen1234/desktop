@@ -14,6 +14,8 @@ import {
   requestOAuthToken,
   getOAuthAuthorizationURL,
 } from '../../lib/api'
+import { fetchGiteaUser } from '../../lib/api/gitea-provider'
+import { getGiteaAPIURL } from '../../lib/api/gitea-endpoint'
 
 import { TypedBaseStore } from './base-store'
 import { IOAuthAction } from '../parse-app-url'
@@ -30,6 +32,8 @@ export enum SignInStep {
   ExistingAccountWarning = 'ExistingAccountWarning',
   Authentication = 'Authentication',
   TwoFactorAuthentication = 'TwoFactorAuthentication',
+  GiteaEndpointEntry = 'GiteaEndpointEntry',
+  TokenEntry = 'TokenEntry',
   Success = 'Success',
 }
 
@@ -41,6 +45,8 @@ export type SignInState =
   | IEndpointEntryState
   | IExistingAccountWarning
   | IAuthenticationState
+  | IGiteaEndpointEntryState
+  | ITokenEntryState
   | ISuccessState
 
 /**
@@ -128,6 +134,31 @@ export interface IAuthenticationState extends ISignInState {
     onAuthCompleted: (account: Account) => void
     onAuthError: (error: Error) => void
   }
+}
+
+/**
+ * State interface representing the endpoint entry step for a Gitea,
+ * Forgejo, or Codeberg instance. This is the initial step of that sign in
+ * flow, parallel to `IEndpointEntryState` for GitHub Enterprise.
+ */
+export interface IGiteaEndpointEntryState extends ISignInState {
+  readonly kind: SignInStep.GiteaEndpointEntry
+  readonly resultCallback: (result: SignInResult) => void
+}
+
+/**
+ * State interface representing the personal access token entry step. Used
+ * in place of `IAuthenticationState`'s browser OAuth flow for forges that
+ * can't support a generic OAuth app (self-hosted Gitea/Forgejo/Codeberg
+ * instances would each need Desktop registered as an OAuth app locally).
+ */
+export interface ITokenEntryState extends ISignInState {
+  readonly kind: SignInStep.TokenEntry
+
+  /** The API endpoint to authenticate the token against. */
+  readonly endpoint: string
+
+  readonly resultCallback: (result: SignInResult) => void
 }
 
 /**
@@ -454,6 +485,122 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
         error: null,
         loading: false,
         resultCallback: currentState.resultCallback,
+      })
+    }
+  }
+
+  /**
+   * Initiate a sign in flow for a Gitea, Forgejo, or Codeberg instance.
+   * This will put the store in the GiteaEndpointEntry step ready to
+   * receive the url to the instance.
+   */
+  public beginGiteaSignIn(resultCallback?: (result: SignInResult) => void) {
+    if (this.state !== null) {
+      this.reset()
+    }
+
+    this.setState({
+      kind: SignInStep.GiteaEndpointEntry,
+      error: null,
+      loading: false,
+      resultCallback: resultCallback ?? noop,
+    })
+  }
+
+  /**
+   * Attempt to advance from the GiteaEndpointEntry step with the given
+   * instance url. This method must only be called when the store is in the
+   * GiteaEndpointEntry step or an error will be thrown.
+   *
+   * If validation is successful the store will advance to the TokenEntry
+   * step. Unlike GitHub Enterprise sign in there's no ExistingAccountWarning
+   * detour here since there's no browser OAuth re-auth flow to offer for
+   * token-based sign in — re-signing in for an endpoint that already has an
+   * account simply replaces it once a valid token is submitted.
+   */
+  public async setGiteaEndpoint(url: string): Promise<void> {
+    const currentState = this.state
+
+    if (currentState?.kind !== SignInStep.GiteaEndpointEntry) {
+      const stepText = currentState ? currentState.kind : 'null'
+      return fatalError(
+        `Sign in step '${stepText}' not compatible with Gitea endpoint entry`
+      )
+    }
+
+    this.setState({ ...currentState, loading: true })
+
+    let validUrl: string
+    try {
+      validUrl = validateURL(url)
+    } catch (e) {
+      let error = e
+      if (e.name === InvalidURLErrorName) {
+        error = new Error(
+          `That doesn't appear to be a valid URL. We're expecting something like https://codeberg.org.`
+        )
+      } else if (e.name === InvalidProtocolErrorName) {
+        error = new Error(
+          'Unsupported protocol. Only https is supported when authenticating with other Git hosts.'
+        )
+      }
+
+      this.setState({ ...currentState, loading: false, error })
+      return
+    }
+
+    const endpoint = getGiteaAPIURL(validUrl)
+
+    this.setState({
+      kind: SignInStep.TokenEntry,
+      endpoint,
+      error: null,
+      loading: false,
+      resultCallback: currentState.resultCallback,
+    })
+  }
+
+  /**
+   * Attempt to authenticate using a personal access token for the endpoint
+   * set during the TokenEntry step. This method must only be called when
+   * the store is in the TokenEntry step or an error will be thrown.
+   */
+  public async setToken(token: string): Promise<void> {
+    const currentState = this.state
+
+    if (currentState?.kind !== SignInStep.TokenEntry) {
+      const stepText = currentState ? currentState.kind : 'null'
+      return fatalError(
+        `Sign in step '${stepText}' not compatible with token entry`
+      )
+    }
+
+    this.setState({ ...currentState, loading: true })
+
+    const existingAccount = this.accounts.find(
+      x => x.endpoint === currentState.endpoint
+    )
+
+    try {
+      const account = await fetchGiteaUser(currentState.endpoint, token)
+
+      if (existingAccount) {
+        await this.accountStore.removeAccount(existingAccount)
+      }
+
+      this.emitAuthenticate(account)
+      this.setState({
+        kind: SignInStep.Success,
+        resultCallback: currentState.resultCallback,
+      })
+    } catch (e) {
+      log.info('[SignInStore] error with token sign in', e)
+      this.setState({
+        ...currentState,
+        loading: false,
+        error: new Error(
+          'Could not sign in with that token. Please check the instance url and the token (and that it has the required scopes) and try again.'
+        ),
       })
     }
   }

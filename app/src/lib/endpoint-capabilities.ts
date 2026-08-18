@@ -62,10 +62,28 @@ export const isGist = (ep: string) => {
 export const isGHE = (ep: string) => new URL(ep).hostname.endsWith('.ghe.com')
 
 /**
+ * Endpoints known to belong to a Gitea/Forgejo/Codeberg account, registered
+ * by `AccountsStore` as accounts are loaded/added. Consulted by `isGHES` so
+ * that GitHub-only capability gates (rulesets, Actions rerun, Alive
+ * sessions, ...) don't light up for non-GitHub endpoints, which would
+ * otherwise be indistinguishable from a GHES instance by URL shape alone.
+ */
+const giteaEndpoints = new Set<string>()
+
+/** Record that the given endpoint belongs to a Gitea/Forgejo/Codeberg account */
+export function registerGiteaEndpoint(endpoint: string) {
+  giteaEndpoints.add(endpoint)
+}
+
+/** Whether or not the given endpoint URI belongs to a Gitea/Forgejo/Codeberg account */
+export const isGitea = (ep: string) => giteaEndpoints.has(ep)
+
+/**
  * Whether or not the given endpoint URI appears to point to a GitHub Enterprise
  * Server instance
  */
-export const isGHES = (ep: string) => !isDotCom(ep) && !isGHE(ep)
+export const isGHES = (ep: string) =>
+  !isDotCom(ep) && !isGHE(ep) && !isGitea(ep)
 
 export function getEndpointVersion(endpoint: string) {
   const key = endpointVersionKey(endpoint)

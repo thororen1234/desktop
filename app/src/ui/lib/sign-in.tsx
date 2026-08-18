@@ -2,6 +2,7 @@ import * as React from 'react'
 import { AuthenticationForm } from './authentication-form'
 import { assertNever } from '../../lib/fatal-error'
 import { EnterpriseServerEntry } from '../lib/enterprise-server-entry'
+import { TokenServerEntry } from '../lib/token-server-entry'
 import { Dispatcher } from '../dispatcher'
 import {
   SignInState,
@@ -9,9 +10,12 @@ import {
   IEndpointEntryState,
   IAuthenticationState,
   IExistingAccountWarning,
+  IGiteaEndpointEntryState,
+  ITokenEntryState,
 } from '../../lib/stores'
 import { Ref } from './ref'
 import { getHTMLURL } from '../../lib/api'
+import { LinkButton } from './link-button'
 
 interface ISignInProps {
   readonly signInState: SignInState
@@ -30,6 +34,18 @@ export class SignIn extends React.Component<ISignInProps, {}> {
 
   private onBrowserSignInRequested = () => {
     this.props.dispatcher.requestBrowserAuthentication()
+  }
+
+  private onGiteaEndpointEntered = (url: string) => {
+    this.props.dispatcher.setSignInGiteaEndpoint(url)
+  }
+
+  private onTokenEntered = (token: string) => {
+    this.props.dispatcher.setSignInToken(token)
+  }
+
+  private onGiteaSignInInstead = () => {
+    this.props.dispatcher.beginGiteaSignIn()
   }
 
   private renderExistingAccountWarningStep(state: IExistingAccountWarning) {
@@ -51,10 +67,46 @@ export class SignIn extends React.Component<ISignInProps, {}> {
   ) {
     const children = this.props.children as ReadonlyArray<JSX.Element>
     return (
+      <>
+        <EnterpriseServerEntry
+          loading={state.loading}
+          error={state.error}
+          onSubmit={this.onEndpointEntered}
+          additionalButtons={children}
+        />
+        <p>
+          Not GitHub Enterprise?{' '}
+          <LinkButton onClick={this.onGiteaSignInInstead}>
+            Sign in to another Git host instead
+          </LinkButton>
+          .
+        </p>
+      </>
+    )
+  }
+
+  private renderGiteaEndpointEntryStep(state: IGiteaEndpointEntryState) {
+    const children = this.props.children as ReadonlyArray<JSX.Element>
+    return (
       <EnterpriseServerEntry
         loading={state.loading}
         error={state.error}
-        onSubmit={this.onEndpointEntered}
+        onSubmit={this.onGiteaEndpointEntered}
+        additionalButtons={children}
+        label="Instance address"
+        placeholder="https://codeberg.org"
+      />
+    )
+  }
+
+  private renderTokenEntryStep(state: ITokenEntryState) {
+    const children = this.props.children as ReadonlyArray<JSX.Element>
+    return (
+      <TokenServerEntry
+        endpoint={state.endpoint}
+        loading={state.loading}
+        error={state.error}
+        onSubmit={this.onTokenEntered}
         additionalButtons={children}
       />
     )
@@ -84,6 +136,10 @@ export class SignIn extends React.Component<ISignInProps, {}> {
         return this.renderExistingAccountWarningStep(state)
       case SignInStep.Authentication:
         return this.renderAuthenticationStep(state)
+      case SignInStep.GiteaEndpointEntry:
+        return this.renderGiteaEndpointEntryStep(state)
+      case SignInStep.TokenEntry:
+        return this.renderTokenEntryStep(state)
       case SignInStep.Success:
         return null
       default:

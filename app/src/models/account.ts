@@ -1,4 +1,5 @@
 import { getDotComAPIEndpoint, getHTMLURL, IAPIEmail } from '../lib/api'
+import { getGiteaHTMLURL } from '../lib/api/gitea-endpoint'
 
 export const CopilotLicenseTypeNoAccess = 'NO_ACCESS'
 
@@ -13,6 +14,13 @@ export const CopilotLicenseTypeNoAccess = 'NO_ACCESS'
 export function accountEquals(x: Account, y: Account) {
   return x.endpoint === y.endpoint && x.id === y.id
 }
+
+/**
+ * The kind of forge this account authenticates against. `github` covers
+ * GitHub.com and GitHub Enterprise; `gitea` covers Gitea, Forgejo, and
+ * Codeberg, which share a compatible REST API.
+ */
+export type AccountSource = 'github' | 'gitea'
 
 /**
  * A GitHub account, representing the user found on GitHub The Website or GitHub Enterprise.
@@ -42,6 +50,7 @@ export class Account {
    * @param isCopilotDesktopEnabled Whether Copilot for Desktop is enabled for this account
    * @param features The Desktop-specific features available to this account
    * @param copilotLicenseType The user's Copilot license type
+   * @param source The forge this account authenticates against, defaults to `github`
    */
   public constructor(
     public readonly login: string,
@@ -55,7 +64,8 @@ export class Account {
     public readonly copilotEndpoint?: string,
     public readonly isCopilotDesktopEnabled?: boolean,
     public readonly features?: ReadonlyArray<string>,
-    public readonly copilotLicenseType?: string
+    public readonly copilotLicenseType?: string,
+    public readonly source: AccountSource = 'github'
   ) {}
 
   public withToken(token: string): Account {
@@ -71,7 +81,8 @@ export class Account {
       this.copilotEndpoint,
       this.isCopilotDesktopEnabled,
       this.features,
-      this.copilotLicenseType
+      this.copilotLicenseType,
+      this.source
     )
   }
 
@@ -95,7 +106,11 @@ export class Account {
   public get friendlyEndpoint(): string {
     return (this._friendlyEndpoint ??= isDotComAccount(this)
       ? 'GitHub.com'
-      : new URL(getHTMLURL(this.endpoint)).hostname)
+      : new URL(
+          this.source === 'gitea'
+            ? getGiteaHTMLURL(this.endpoint)
+            : getHTMLURL(this.endpoint)
+        ).hostname)
   }
 }
 
@@ -112,3 +127,9 @@ export const isDotComAccount = (account: Account) =>
  */
 export const isEnterpriseAccount = (account: Account) =>
   !isDotComAccount(account)
+
+/**
+ * Whether or not the given account authenticates against a Gitea, Forgejo,
+ * or Codeberg instance (as opposed to a GitHub host)
+ */
+export const isGiteaAccount = (account: Account) => account.source === 'gitea'
