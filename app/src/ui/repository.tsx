@@ -371,6 +371,7 @@ export class RepositoryView extends React.Component<
         localTags={localTags}
         dispatcher={dispatcher}
         onRevertCommit={this.onRevertCommit}
+        onRevertCommits={this.onRevertCommits}
         onAmendCommit={this.onAmendCommit}
         onViewCommitOnGitHub={this.props.onViewCommitOnGitHub}
         onCompareListScrolled={this.onCompareListScrolled}
@@ -658,6 +659,10 @@ export class RepositoryView extends React.Component<
 
   private onRevertCommit = (commit: Commit) => {
     this.props.dispatcher.revertCommit(this.props.repository, commit)
+  }
+
+  private onRevertCommits = (commits: ReadonlyArray<Commit>) => {
+    this.props.dispatcher.revertCommits(this.props.repository, commits)
   }
 
   private onAmendCommit = (commit: Commit, isLocalCommit: boolean) => {

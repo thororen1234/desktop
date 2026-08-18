@@ -975,6 +975,14 @@ export class Dispatcher {
     return this.appStore._revertCommit(repository, commit)
   }
 
+  /** Revert the changes of multiple commits into a single new commit */
+  public revertCommits(
+    repository: Repository,
+    commits: ReadonlyArray<Commit>
+  ): Promise<void> {
+    return this.appStore._revertCommits(repository, commits)
+  }
+
   /**
    * Set the width of the repository sidebar to the given
    * value. This affects the changes and history sidebar

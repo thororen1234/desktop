@@ -8385,6 +8385,23 @@ export class AppStore extends TypedBaseStore<IAppState> {
     })
   }
 
+  /** This shouldn't be called directly. See `Dispatcher`. */
+  public async _revertCommits(
+    repository: Repository,
+    commits: ReadonlyArray<Commit>
+  ): Promise<void> {
+    return this.withRefreshedGitHubRepository(repository, async repository => {
+      const gitStore = this.gitStoreCache.get(repository)
+
+      await gitStore.revertCommits(repository, commits, progress => {
+        this.updateRevertProgress(repository, progress)
+      })
+
+      this.updateRevertProgress(repository, null)
+      await this._refreshRepository(repository)
+    })
+  }
+
   public async _installGlobalLFSFilters(force: boolean): Promise<void> {
     try {
       await installGlobalLFSFilters(force)

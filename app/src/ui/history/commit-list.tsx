@@ -84,6 +84,12 @@ interface ICommitListProps {
   /** Callback to fire to revert a given commit in the current repository */
   readonly onRevertCommit?: (commit: Commit) => void
 
+  /**
+   * Callback to fire to revert the changes of multiple commits, combined
+   * into a single new commit, in the current repository
+   */
+  readonly onRevertCommits?: (commits: ReadonlyArray<Commit>) => void
+
   readonly onAmendCommit?: (commit: Commit, isLocalCommit: boolean) => void
 
   /** Callback to fire to open a given commit on GitHub */
@@ -943,7 +949,26 @@ export class CommitList extends React.Component<
         action: () => this.props.onKeyboardReorder?.(this.selectedCommits),
         enabled: this.canReorder(),
       },
+      {
+        label: __DARWIN__
+          ? `Revert Changes in ${count} Commits…`
+          : `Revert changes in ${count} commits…`,
+        action: () =>
+          this.props.onRevertCommits?.(this.orderedSelectedCommitsForRevert()),
+        enabled: this.props.onRevertCommits !== undefined,
+      },
     ]
+  }
+
+  // Returns the currently selected commits ordered newest-first, regardless
+  // of the order in which they were selected, so that reverting them into a
+  // single commit applies cleanly (git recommends reverting a sequence of
+  // commits newest-to-oldest).
+  private orderedSelectedCommitsForRevert(): ReadonlyArray<Commit> {
+    const { commitSHAs } = this.props
+    return [...this.selectedCommits].sort(
+      (x, y) => commitSHAs.indexOf(x.sha) - commitSHAs.indexOf(y.sha)
+    )
   }
 
   private onKeyboardInsertionIndexPathChanged = (indexPath: RowIndexPath) => {
