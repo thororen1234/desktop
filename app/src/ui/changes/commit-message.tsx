@@ -27,7 +27,7 @@ import { LinkButton } from '../lib/link-button'
 import { CommitOptions, Foldout, FoldoutType } from '../../lib/app-state'
 import { IAvatarUser, getAvatarUserFromAuthor } from '../../models/avatar'
 import { showContextualMenu } from '../../lib/menu-item'
-import { Account, isEnterpriseAccount } from '../../models/account'
+import { Account, isGiteaAccount } from '../../models/account'
 import {
   CommitMessageAvatar,
   CommitMessageAvatarWarningType,
@@ -37,7 +37,7 @@ import {
   isAttributableEmailFor,
   lookupPreferredEmail,
 } from '../../lib/email'
-import { setGlobalConfigValue } from '../../lib/git/config'
+import { setConfigValue, setGlobalConfigValue } from '../../lib/git/config'
 import { Popup, PopupType } from '../../models/popup'
 import { RepositorySettingsTab } from '../repository-settings/repository-settings'
 import { IdealSummaryLength } from '../../lib/wrap-rich-text-commit-message'
@@ -61,6 +61,7 @@ import { RepoRulesMetadataFailureList } from '../repository-rules/repo-rules-fai
 import { formatCommitMessage } from '../../lib/format-commit-message'
 import { useRepoRulesLogic } from '../../lib/helpers/repo-rules'
 import { isDotCom } from '../../lib/endpoint-capabilities'
+import { getForgeDisplayNameForEndpoint } from '../../lib/view-on-platform'
 import { WorkingDirectoryFileChange } from '../../models/status'
 import {
   enableCommitMessageGeneration,
@@ -112,6 +113,14 @@ interface ICommitMessageProps {
   readonly commitMessage: ICommitMessage | null
   readonly repository: Repository
   readonly repositoryAccount: Account | null
+
+  /**
+   * When enabled, automatically sets this repository's local commit author
+   * email to `repositoryAccount`'s privacy/noreply email whenever the
+   * selected repository changes. Leaves the email untouched if there's no
+   * recognized account for the repository.
+   */
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly autocompletionProviders: ReadonlyArray<IAutocompletionProvider<any>>
   readonly isCommitting?: boolean
   readonly hookProgress: HookProgress | null
@@ -334,6 +343,53 @@ export class CommitMessage extends React.Component<
   public async componentDidMount() {
     window.addEventListener('keydown', this.onKeyDown)
     await this.updateRepoRuleFailures(undefined, undefined, true)
+    await this.maybeAutoSwitchPrivacyEmail(undefined, true)
+  }
+
+  /**
+   * When `automaticallySwitchPrivacyEmail` is enabled, keep this
+   * repository's local commit author email in sync with the signed-in
+   * account's privacy/noreply email for whichever host it's on, so
+   * switching between e.g. a GitHub repo and a Codeberg repo automatically
+   * uses the right noreply address for each without the user having to
+   * manually update it every time.
+   *
+   * If the repository has no recognized account, this leaves the existing
+   * email untouched -- the user can still choose one manually via the
+   * misattribution warning.
+   */
+  private maybeAutoSwitchPrivacyEmail = async (
+    prevProps?: ICommitMessageProps,
+    forceUpdate: boolean = false
+  ) => {
+    if (!this.props.automaticallySwitchPrivacyEmail) {
+      return
+    }
+
+    const repositoryChanged =
+      forceUpdate ||
+      prevProps?.repository.id !== this.props.repository.id ||
+      prevProps?.repositoryAccount !== this.props.repositoryAccount
+
+    if (!repositoryChanged) {
+      return
+    }
+
+    const { repositoryAccount, repository, commitAuthor } = this.props
+
+    if (repositoryAccount == null) {
+      return
+    }
+
+    const { id, login, endpoint } = repositoryAccount
+    const desiredEmail = getStealthEmailForUser(id, login, endpoint)
+
+    if (commitAuthor?.email.toLowerCase() === desiredEmail.toLowerCase()) {
+      return
+    }
+
+    await setConfigValue(repository, 'user.email', desiredEmail)
+    this.props.onRefreshAuthor()
   }
 
   /**
@@ -412,6 +468,7 @@ export class CommitMessage extends React.Component<
     }
 
     await this.updateRepoRuleFailures(prevProps, prevState)
+    await this.maybeAutoSwitchPrivacyEmail(prevProps)
   }
 
   private async updateRepoRuleFailures(
@@ -737,7 +794,15 @@ export class CommitMessage extends React.Component<
     const accountEmails =
       repositoryAccount?.emails.filter(e => e.verified).map(e => e.email) ?? []
 
-    if (repositoryAccount && isDotCom(repositoryAccount.endpoint)) {
+    // GitHub.com and Gitea/Forgejo/Codeberg both support a "keep my email
+    // private" noreply address that may not show up in the account's
+    // fetched email list (e.g. Gitea's `/user/emails` doesn't include it),
+    // so offer it as a selectable option even when absent from that list.
+    if (
+      repositoryAccount &&
+      (isDotCom(repositoryAccount.endpoint) ||
+        isGiteaAccount(repositoryAccount))
+    ) {
       const { id, login, endpoint } = repositoryAccount
       const stealthEmail = getStealthEmailForUser(id, login, endpoint)
 
@@ -772,8 +837,10 @@ export class CommitMessage extends React.Component<
       <CommitMessageAvatar
         user={avatarUser}
         email={commitAuthor?.email}
-        isEnterpriseAccount={
-          repositoryAccount !== null && isEnterpriseAccount(repositoryAccount)
+        platformName={
+          repositoryAccount != null
+            ? getForgeDisplayNameForEndpoint(repositoryAccount.endpoint)
+            : 'GitHub'
         }
         warningType={warningType}
         emailRuleFailures={this.state.repoRuleCommitAuthorFailures}

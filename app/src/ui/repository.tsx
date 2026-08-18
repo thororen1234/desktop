@@ -56,6 +56,7 @@ interface IRepositoryViewProps {
   readonly preferAbsoluteDates: boolean
   readonly askForConfirmationOnDiscardChanges: boolean
   readonly askForConfirmationOnCommitFilteredChanges: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly askForConfirmationOnDiscardStash: boolean
   readonly askForConfirmationOnCheckoutCommit: boolean
   readonly focusCommitMessage: boolean
@@ -306,6 +307,9 @@ export class RepositoryView extends React.Component<
         }
         askForConfirmationOnCommitFilteredChanges={
           this.props.askForConfirmationOnCommitFilteredChanges
+        }
+        automaticallySwitchPrivacyEmail={
+          this.props.automaticallySwitchPrivacyEmail
         }
         accounts={this.props.accounts}
         isShowingModal={this.props.isShowingModal}

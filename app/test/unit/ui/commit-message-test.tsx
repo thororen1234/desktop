@@ -127,6 +127,7 @@ function createProps(
     signOffCommits: false,
     allowEmptyCommit: false,
     showAllowEmptyCommitOption: true,
+    automaticallySwitchPrivacyEmail: false,
     onUpdateCommitOptions: () => {},
     ...overrides,
   }

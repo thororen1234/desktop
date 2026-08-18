@@ -72,11 +72,37 @@
     text-overflow: ellipsis;
     overflow-x: hidden;
     white-space: nowrap;
+
+    // Collapse/expand toggle for a top-level host group. Reset to look like
+    // the plain text header it replaces, just with a leading chevron.
+    .repository-list-group-header-button {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 0;
+      background: none;
+      border: none;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+
+      .octicon {
+        flex-shrink: 0;
+        margin-right: var(--spacing-half);
+        width: 12px;
+      }
+
+      span {
+        @include ellipsis;
+      }
+    }
   }
 
   // A sub-header nested within a host group, labeling which account the
   // repositories immediately following it belong to (see
-  // `IRepositoryListOwnerHeader` in group-repositories.ts).
+  // `IRepositoryListOwnerHeader` in group-repositories.ts). Collapsible,
+  // like the top-level group header.
   .repository-list-owner-header {
     display: flex;
     align-items: center;
@@ -88,6 +114,17 @@
     text-overflow: ellipsis;
     overflow-x: hidden;
     white-space: nowrap;
+    cursor: pointer;
+
+    .octicon {
+      flex-shrink: 0;
+      margin-right: var(--spacing-half);
+      width: 12px;
+    }
+
+    span {
+      @include ellipsis;
+    }
   }
 
   .new-repository-button {

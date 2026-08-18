@@ -113,6 +113,7 @@ interface IPreferencesProps {
   readonly useCustomShell: boolean
   readonly customShell: ICustomIntegration | null
   readonly repositoryIndicatorsEnabled: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly onEditGlobalGitConfig: () => void
   readonly underlineLinks: boolean
   readonly showDiffCheckMarks: boolean
@@ -166,6 +167,7 @@ interface IPreferencesState {
    */
   readonly existingLockFilePath?: string
   readonly repositoryIndicatorsEnabled: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
 
   readonly initiallySelectedTheme: ApplicationTheme
   readonly initiallySelectedTabSize: number
@@ -243,6 +245,8 @@ export class Preferences extends React.Component<
       availableShells: [],
       selectedShell: this.props.selectedShell,
       repositoryIndicatorsEnabled: this.props.repositoryIndicatorsEnabled,
+      automaticallySwitchPrivacyEmail:
+        this.props.automaticallySwitchPrivacyEmail,
       initiallySelectedTheme: this.props.selectedTheme,
       initiallySelectedTabSize: this.props.selectedTabSize,
       isLoadingGitConfig: true,
@@ -731,6 +735,9 @@ export class Preferences extends React.Component<
             optOutOfUsageTracking={this.state.optOutOfUsageTracking}
             useExternalCredentialHelper={this.state.useExternalCredentialHelper}
             repositoryIndicatorsEnabled={this.state.repositoryIndicatorsEnabled}
+            automaticallySwitchPrivacyEmail={
+              this.state.automaticallySwitchPrivacyEmail
+            }
             onUseWindowsOpenSSHChanged={this.onUseWindowsOpenSSHChanged}
             onOptOutofReportingChanged={this.onOptOutofReportingChanged}
             onUseExternalCredentialHelperChanged={
@@ -738,6 +745,9 @@ export class Preferences extends React.Component<
             }
             onRepositoryIndicatorsEnabledChanged={
               this.onRepositoryIndicatorsEnabledChanged
+            }
+            onAutomaticallySwitchPrivacyEmailChanged={
+              this.onAutomaticallySwitchPrivacyEmailChanged
             }
           />
         )
@@ -772,6 +782,12 @@ export class Preferences extends React.Component<
     repositoryIndicatorsEnabled: boolean
   ) => {
     this.setState({ repositoryIndicatorsEnabled })
+  }
+
+  private onAutomaticallySwitchPrivacyEmailChanged = (
+    automaticallySwitchPrivacyEmail: boolean
+  ) => {
+    this.setState({ automaticallySwitchPrivacyEmail })
   }
 
   private onLockFileDeleted = () => {
@@ -1030,6 +1046,15 @@ export class Preferences extends React.Component<
       ) {
         dispatcher.setRepositoryIndicatorsEnabled(
           this.state.repositoryIndicatorsEnabled
+        )
+      }
+
+      if (
+        this.props.automaticallySwitchPrivacyEmail !==
+        this.state.automaticallySwitchPrivacyEmail
+      ) {
+        dispatcher.setAutomaticallySwitchPrivacyEmail(
+          this.state.automaticallySwitchPrivacyEmail
         )
       }
 

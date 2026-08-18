@@ -263,6 +263,16 @@ export interface IAppState {
   /** Should the app prompt the user to confirm worktree removal? */
   readonly askForConfirmationOnWorktreeRemoval: boolean
 
+  /**
+   * When enabled, Desktop automatically sets each repository's local commit
+   * author email to the signed-in account's privacy/noreply email for that
+   * repository's host (e.g. GitHub's `users.noreply.github.com` on a GitHub
+   * repo, Codeberg's `noreply.codeberg.org` on a Codeberg repo) whenever the
+   * selected repository changes. If the repository has no recognized
+   * account, the existing email is left untouched.
+   */
+  readonly automaticallySwitchPrivacyEmail: boolean
+
   /** How the app should handle uncommitted changes when switching branches */
   readonly uncommittedChangesStrategy: UncommittedChangesStrategy
 

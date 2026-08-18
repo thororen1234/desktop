@@ -2692,6 +2692,15 @@ export class Dispatcher {
   }
 
   /**
+   * Set whether Desktop should automatically switch each repository's local
+   * commit author email to the signed-in account's privacy/noreply email
+   * for that repository's host whenever the selected repository changes.
+   */
+  public setAutomaticallySwitchPrivacyEmail(value: boolean) {
+    return this.appStore._setAutomaticallySwitchPrivacyEmail(value)
+  }
+
+  /**
    * Converts a local repository to use the given fork
    * as its default remote and associated `GitHubRepository`.
    */

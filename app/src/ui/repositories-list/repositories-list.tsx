@@ -30,6 +30,21 @@ import { IAheadBehind } from '../../models/branch'
 
 const BlankSlateImage = encodePathAsUrl(__dirname, 'static/empty-no-repo.svg')
 
+const CollapsedGroupsStorageKey = 'repository-list-collapsed-groups'
+
+const loadCollapsedIds = (): ReadonlySet<string> => {
+  try {
+    const raw = localStorage.getItem(CollapsedGroupsStorageKey)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    return new Set()
+  }
+}
+
+const saveCollapsedIds = (ids: ReadonlySet<string>) => {
+  localStorage.setItem(CollapsedGroupsStorageKey, JSON.stringify([...ids]))
+}
+
 interface IRepositoriesListProps {
   readonly selectedRepository: Repositoryish | null
   readonly repositories: ReadonlyArray<Repositoryish>
@@ -80,6 +95,14 @@ interface IRepositoriesListProps {
 interface IRepositoriesListState {
   readonly newRepositoryMenuExpanded: boolean
   readonly selectedItem: RepositoryListRow | null
+
+  /**
+   * The set of group and owner-header ids that are currently collapsed
+   * (hiding their repositories). Group ids come from `getGroupKey`, owner
+   * ids from `IRepositoryListOwnerHeader.id`, so they share one namespace
+   * without collision. Persisted across restarts.
+   */
+  readonly collapsedIds: ReadonlySet<string>
 }
 
 const RowHeight = 29
@@ -137,6 +160,47 @@ export class RepositoriesList extends React.Component<
   )
 
   /**
+   * A memoized function which hides the repositories belonging to a
+   * collapsed group or owner sub-header. Bypassed while actively filtering
+   * so a search never hides a match behind a collapsed section.
+   */
+  private getVisibleGroups = memoizeOne(
+    (
+      groups: ReadonlyArray<
+        IFilterListGroup<RepositoryListRow, RepositoryListGroup>
+      >,
+      collapsedIds: ReadonlySet<string>,
+      filterText: string
+    ) => {
+      if (filterText.length > 0 || collapsedIds.size === 0) {
+        return groups
+      }
+
+      return groups.map(g => {
+        if (collapsedIds.has(getGroupKey(g.identifier))) {
+          // Keep the header visible (with zero items) rather than letting
+          // FilterList hide the whole group -- otherwise there'd be no way
+          // to click the header again to expand it.
+          return { ...g, items: [], alwaysShowHeader: true }
+        }
+
+        const items: RepositoryListRow[] = []
+        let hideRepos = false
+        for (const item of g.items) {
+          if (item.kind === 'owner-header') {
+            hideRepos = collapsedIds.has(item.id)
+          } else if (hideRepos) {
+            continue
+          }
+          items.push(item)
+        }
+
+        return items.length === g.items.length ? g : { ...g, items }
+      })
+    }
+  )
+
+  /**
    * A memoized function for finding the selected list item based
    * on an IAPIRepository instance. The selected item will not be
    * recomputed as long as the provided list of repositories and
@@ -153,14 +217,37 @@ export class RepositoriesList extends React.Component<
     this.state = {
       newRepositoryMenuExpanded: false,
       selectedItem: null,
+      collapsedIds: loadCollapsedIds(),
     }
+  }
+
+  private toggleCollapsed = (id: string) => {
+    this.setState(prevState => {
+      const collapsedIds = new Set(prevState.collapsedIds)
+      if (collapsedIds.has(id)) {
+        collapsedIds.delete(id)
+      } else {
+        collapsedIds.add(id)
+      }
+      saveCollapsedIds(collapsedIds)
+      return { collapsedIds }
+    })
   }
 
   private renderItem = (item: RepositoryListRow, matches: IMatches) => {
     if (item.kind === 'owner-header') {
+      const collapsed = this.state.collapsedIds.has(item.id)
       return (
-        <div key={item.id} className="repository-list-owner-header">
-          {item.owner}
+        <div
+          key={item.id}
+          className="repository-list-owner-header"
+          role="button"
+          aria-expanded={!collapsed}
+        >
+          <Octicon
+            symbol={collapsed ? octicons.chevronRight : octicons.chevronDown}
+          />
+          <span>{item.owner}</span>
         </div>
       )
     }
@@ -272,21 +359,46 @@ export class RepositoriesList extends React.Component<
 
   private renderGroupHeader = (group: RepositoryListGroup) => {
     const label = this.getGroupLabel(group)
+    const key = getGroupKey(group)
+    const collapsed = this.state.collapsedIds.has(key)
 
     return (
       <TooltippedContent
-        key={getGroupKey(group)}
+        key={key}
         className="filter-list-group-header"
         tooltip={label}
         onlyWhenOverflowed={true}
         tagName="div"
       >
-        {label}
+        <button
+          type="button"
+          className="repository-list-group-header-button"
+          onClick={this.onGroupHeaderClick}
+          data-group-key={key}
+          aria-expanded={!collapsed}
+        >
+          <Octicon
+            symbol={collapsed ? octicons.chevronRight : octicons.chevronDown}
+          />
+          <span>{label}</span>
+        </button>
       </TooltippedContent>
     )
   }
 
+  private onGroupHeaderClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const key = event.currentTarget.dataset.groupKey
+    if (key !== undefined) {
+      this.toggleCollapsed(key)
+    }
+  }
+
   private onItemClick = (item: RepositoryListRow) => {
+    if (item.kind === 'owner-header') {
+      this.toggleCollapsed(item.id)
+      return
+    }
+
     if (item.kind !== 'repository') {
       return
     }
@@ -361,6 +473,12 @@ export class RepositoriesList extends React.Component<
       this.state.selectedItem ??
       this.getSelectedListItem(groups, this.props.selectedRepository)
 
+    const visibleGroups = this.getVisibleGroups(
+      groups,
+      this.state.collapsedIds,
+      this.props.filterText
+    )
+
     return (
       <div className="repository-list">
         <SectionFilterList<RepositoryListRow, RepositoryListGroup>
@@ -374,13 +492,14 @@ export class RepositoriesList extends React.Component<
           onItemClick={this.onItemClick}
           renderPostFilter={this.renderPostFilter}
           renderNoItems={this.renderNoItems}
-          groups={groups}
+          groups={visibleGroups}
           invalidationProps={{
             repositories: this.props.repositories,
             filterText: this.props.filterText,
+            collapsedIds: this.state.collapsedIds,
           }}
           onItemContextMenu={this.onItemContextMenu}
-          getGroupAriaLabel={this.getGroupAriaLabelGetter(groups)}
+          getGroupAriaLabel={this.getGroupAriaLabelGetter(visibleGroups)}
           getItemAriaLabel={this.getItemAriaLabel}
           onSelectionChanged={this.onSelectionChanged}
         />

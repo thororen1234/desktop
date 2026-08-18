@@ -123,6 +123,7 @@ interface IFilterChangesListProps {
   readonly onDiscardChanges: (file: WorkingDirectoryFileChange) => void
   readonly askForConfirmationOnDiscardChanges: boolean
   readonly askForConfirmationOnCommitFilteredChanges: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly focusCommitMessage: boolean
   readonly isShowingModal: boolean
   readonly isShowingFoldout: boolean
@@ -967,6 +968,9 @@ export class FilterChangesList extends React.Component<
         filesToBeCommittedCount={filesSelected.length}
         repository={repository}
         repositoryAccount={repositoryAccount}
+        automaticallySwitchPrivacyEmail={
+          this.props.automaticallySwitchPrivacyEmail
+        }
         commitMessage={this.props.commitMessage}
         focusCommitMessage={this.props.focusCommitMessage}
         autocompletionProviders={this.props.autocompletionProviders}

@@ -1747,6 +1747,9 @@ export class App extends React.Component<IAppProps, IAppState> {
             confirmWorktreeRemoval={
               this.state.askForConfirmationOnWorktreeRemoval
             }
+            automaticallySwitchPrivacyEmail={
+              this.state.automaticallySwitchPrivacyEmail
+            }
             uncommittedChangesStrategy={this.state.uncommittedChangesStrategy}
             selectedExternalEditor={this.state.selectedExternalEditor}
             useWindowsOpenSSH={this.state.useWindowsOpenSSH}
@@ -2425,6 +2428,9 @@ export class App extends React.Component<IAppProps, IAppState> {
             onDismissed={onPopupDismissedFn}
             onSubmitCommitMessage={popup.onSubmitCommitMessage}
             repositoryAccount={repositoryAccount}
+            automaticallySwitchPrivacyEmail={
+              this.state.automaticallySwitchPrivacyEmail
+            }
             accounts={this.state.accounts}
             skipCommitHooks={repositoryState.skipCommitHooks}
             signOffCommits={repositoryState.signOffCommits}
@@ -3967,6 +3973,9 @@ export class App extends React.Component<IAppProps, IAppState> {
           }
           askForConfirmationOnCommitFilteredChanges={
             state.askForConfirmationOnCommitFilteredChanges
+          }
+          automaticallySwitchPrivacyEmail={
+            state.automaticallySwitchPrivacyEmail
           }
           accounts={state.accounts}
           isExternalEditorAvailable={

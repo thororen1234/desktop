@@ -502,6 +502,10 @@ const confirmCommitFilteredChangesKey: string =
 const confirmCommitMessageOverrideKey: string = 'confirmCommitMessageOverride'
 const confirmWorktreeRemovalKey: string = 'confirmWorktreeRemoval'
 
+const automaticallySwitchPrivacyEmailDefault: boolean = false
+const automaticallySwitchPrivacyEmailKey: string =
+  'automatically-switch-privacy-email'
+
 const uncommittedChangesStrategyKey = 'uncommittedChangesStrategyKind'
 
 const externalEditorKey: string = 'externalEditor'
@@ -659,6 +663,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private confirmCommitMessageOverride: boolean =
     confirmCommitMessageOverrideDefault
   private confirmWorktreeRemoval: boolean = confirmWorktreeRemovalDefault
+  private automaticallySwitchPrivacyEmail: boolean =
+    automaticallySwitchPrivacyEmailDefault
   private imageDiffType: ImageDiffType = imageDiffTypeDefault
   private hideWhitespaceInChangesDiff: boolean =
     hideWhitespaceInChangesDiffDefault
@@ -1309,6 +1315,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       askForConfirmationOnCommitMessageOverride:
         this.confirmCommitMessageOverride,
       askForConfirmationOnWorktreeRemoval: this.confirmWorktreeRemoval,
+      automaticallySwitchPrivacyEmail: this.automaticallySwitchPrivacyEmail,
       uncommittedChangesStrategy: this.uncommittedChangesStrategy,
       selectedExternalEditor: this.selectedExternalEditor,
       imageDiffType: this.imageDiffType,
@@ -2536,6 +2543,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
     this.confirmWorktreeRemoval = getBoolean(
       confirmWorktreeRemovalKey,
       confirmWorktreeRemovalDefault
+    )
+
+    this.automaticallySwitchPrivacyEmail = getBoolean(
+      automaticallySwitchPrivacyEmailKey,
+      automaticallySwitchPrivacyEmailDefault
     )
 
     this.uncommittedChangesStrategy =
@@ -7800,6 +7812,15 @@ export class AppStore extends TypedBaseStore<IAppState> {
   ): Promise<void> {
     this.confirmCommitMessageOverride = value
     setBoolean(confirmCommitMessageOverrideKey, value)
+
+    this.emitUpdate()
+
+    return Promise.resolve()
+  }
+
+  public _setAutomaticallySwitchPrivacyEmail(value: boolean): Promise<void> {
+    this.automaticallySwitchPrivacyEmail = value
+    setBoolean(automaticallySwitchPrivacyEmailKey, value)
 
     this.emitUpdate()
 

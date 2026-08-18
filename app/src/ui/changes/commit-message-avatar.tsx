@@ -63,8 +63,11 @@ interface ICommitMessageAvatarProps {
    */
   readonly branch: string | null
 
-  /** Whether or not the user's account is a GHE account. */
-  readonly isEnterpriseAccount: boolean
+  /**
+   * The display name of the forge the relevant account authenticates
+   * against, e.g. "GitHub", "GitHub Enterprise", or "codeberg.org".
+   */
+  readonly platformName: string
 
   /** Email addresses available in the relevant GitHub (Enterprise) account. */
   readonly accountEmails: ReadonlyArray<string>
@@ -329,10 +332,6 @@ export class CommitMessageAvatar extends React.Component<
     )
 
     if (warningType === 'misattribution') {
-      const accountTypeSuffix = this.props.isEnterpriseAccount
-        ? ' Enterprise'
-        : ''
-
       const userName =
         this.props.user && this.props.user.name
           ? ` for ${this.props.user.name}`
@@ -342,7 +341,7 @@ export class CommitMessageAvatar extends React.Component<
         <>
           <Row>
             <div>
-              {sharedHeader} doesn't match your GitHub{accountTypeSuffix}{' '}
+              {sharedHeader} doesn't match your {this.props.platformName}{' '}
               account{userName}.{' '}
               <LinkButton
                 ariaLabel="Learn more about commit attribution"

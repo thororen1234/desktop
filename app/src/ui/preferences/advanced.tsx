@@ -10,10 +10,12 @@ interface IAdvancedPreferencesProps {
   readonly optOutOfUsageTracking: boolean
   readonly useExternalCredentialHelper: boolean
   readonly repositoryIndicatorsEnabled: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly onUseWindowsOpenSSHChanged: (checked: boolean) => void
   readonly onOptOutofReportingChanged: (checked: boolean) => void
   readonly onUseExternalCredentialHelperChanged: (checked: boolean) => void
   readonly onRepositoryIndicatorsEnabledChanged: (enabled: boolean) => void
+  readonly onAutomaticallySwitchPrivacyEmailChanged: (enabled: boolean) => void
 }
 
 interface IAdvancedPreferencesState {
@@ -66,6 +68,14 @@ export class Advanced extends React.Component<
     event: React.FormEvent<HTMLInputElement>
   ) => {
     this.props.onRepositoryIndicatorsEnabledChanged(event.currentTarget.checked)
+  }
+
+  private onAutomaticallySwitchPrivacyEmailChanged = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    this.props.onAutomaticallySwitchPrivacyEmailChanged(
+      event.currentTarget.checked
+    )
   }
 
   private onUseWindowsOpenSSHChanged = (
@@ -122,6 +132,32 @@ export class Advanced extends React.Component<
             }
             onChange={this.onReportingOptOutChanged}
           />
+        </div>
+        <div className="advanced-section">
+          <h2>Privacy</h2>
+          <Checkbox
+            label="Automatically use host-specific no-reply email"
+            ariaDescribedBy="automatically-switch-privacy-email-description"
+            value={
+              this.props.automaticallySwitchPrivacyEmail
+                ? CheckboxValue.On
+                : CheckboxValue.Off
+            }
+            onChange={this.onAutomaticallySwitchPrivacyEmailChanged}
+          />
+          <div
+            id="automatically-switch-privacy-email-description"
+            className="settings-description"
+          >
+            <p>
+              When enabled, Desktop automatically uses the no-reply email
+              address for the host of the current repository when committing
+              (e.g. <code>users.noreply.github.com</code> on GitHub repos,
+              <code>noreply.codeberg.org</code> on Codeberg repos). This lets
+              you keep your email private across multiple hosts without
+              manually switching.
+            </p>
+          </div>
         </div>
         <h2>Network and credentials</h2>
         {this.renderSSHSettings()}

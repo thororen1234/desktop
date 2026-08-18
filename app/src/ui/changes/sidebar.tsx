@@ -68,6 +68,7 @@ interface IChangesSidebarProps {
   readonly focusCommitMessage: boolean
   readonly askForConfirmationOnDiscardChanges: boolean
   readonly askForConfirmationOnCommitFilteredChanges: boolean
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly accounts: ReadonlyArray<Account>
   readonly isShowingModal: boolean
   readonly isShowingFoldout: boolean
@@ -439,6 +440,9 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
           }
           askForConfirmationOnCommitFilteredChanges={
             this.props.askForConfirmationOnCommitFilteredChanges
+          }
+          automaticallySwitchPrivacyEmail={
+            this.props.automaticallySwitchPrivacyEmail
           }
           onDiscardChangesFromFiles={this.onDiscardChangesFromFiles}
           onOpenItem={this.onOpenItem}

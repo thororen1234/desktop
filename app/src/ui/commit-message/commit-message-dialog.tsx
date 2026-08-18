@@ -94,6 +94,7 @@ interface ICommitMessageDialogProps {
   readonly onSubmitCommitMessage: (context: ICommitContext) => Promise<boolean>
 
   readonly repositoryAccount: Account | null
+  readonly automaticallySwitchPrivacyEmail: boolean
   readonly accounts: ReadonlyArray<Account>
 
   /**
@@ -194,6 +195,9 @@ export class CommitMessageDialog extends React.Component<
               this.onCommitSpellcheckEnabledChanged
             }
             repositoryAccount={this.props.repositoryAccount}
+            automaticallySwitchPrivacyEmail={
+              this.props.automaticallySwitchPrivacyEmail
+            }
             onStopAmending={this.onStopAmending}
             onShowCreateForkDialog={this.onShowCreateForkDialog}
             accounts={this.props.accounts}

@@ -34,6 +34,14 @@ export interface IFilterListGroup<
   /** Whether to render this group's header. Defaults to true. */
   readonly showHeader?: boolean
 
+  /**
+   * Whether to render this group's header even when it has no items (e.g.
+   * all filtered out, or all hidden by a consumer-side collapse toggle).
+   * Defaults to false, meaning a group with zero items renders nothing at
+   * all, header included.
+   */
+  readonly alwaysShowHeader?: boolean
+
   /** The items in the group. */
   readonly items: ReadonlyArray<Item>
 }
@@ -616,7 +624,7 @@ function createStateUpdate<T extends IFilterListItem, GroupIdentifier>(
           item,
         }))
 
-    if (!items.length) {
+    if (!items.length && !group.alwaysShowHeader) {
       continue
     }
 
