@@ -39,7 +39,7 @@ export function match<T>(
         score: score(itemTextArray.join(''), query, maxScore),
         item,
         matches: {
-          title: matches[0],
+          title: matches.length > 0 ? matches[0] : [],
           subtitle: matches.length > 1 ? matches[1] : [],
         },
       }

@@ -234,7 +234,7 @@ const toSortedListRows = (
       rows.push({
         kind: 'owner-header',
         id: `${getGroupKey(group)}:owner:${owner}`,
-        text: [],
+        text: [owner],
         owner,
       })
     }
