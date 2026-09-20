@@ -5661,7 +5661,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
     account: Account,
     org: IAPIOrganization | null
   ): Promise<Repository> {
-    const api = API.fromAccount(account)
+    const api = getApiForAccount(account)
     const apiRepository = await api.createRepository(
       org,
       name,

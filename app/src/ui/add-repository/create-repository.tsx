@@ -35,6 +35,11 @@ import { InputWarning } from '../lib/input-description/input-warning'
 import { CreateRepositoryError } from '../../lib/error-with-metadata'
 import { RepositoryPath } from '../lib/repository-path'
 import { pathExists } from '../../lib/path-exists'
+import { Account, isDotComAccount } from '../../models/account'
+import { IAPIOrganization } from '../../lib/api'
+import { getApiForAccount } from '../../lib/api/forge-api-factory'
+import { caseInsensitiveCompare } from '../../lib/compare'
+import { AccountPicker } from '../account-picker'
 
 /** URL used to provide information about submodules to the user. */
 const submoduleDocsUrl = 'https://gh.io/git-submodules'
@@ -59,6 +64,9 @@ interface ICreateRepositoryProps {
 
   /** Whether the dialog is the top most in the dialog stack */
   readonly isTopMost: boolean
+
+  /** The signed in accounts, used to optionally publish the new repository */
+  readonly accounts: ReadonlyArray<Account>
 }
 
 interface ICreateRepositoryState {
@@ -106,7 +114,27 @@ interface ICreateRepositoryState {
    * a new README.md.
    */
   readonly readMeExists: boolean
+
+  /** Should the new repository also be published to a remote? */
+  readonly publishToRemote: boolean
+
+  /** The account to publish to, if `publishToRemote` is enabled. */
+  readonly selectedAccount: Account | null
+
+  /** The orgs the selected account belongs to, for the org picker. */
+  readonly orgs: ReadonlyArray<IAPIOrganization>
+
+  /** The org to publish under, or null to publish as a personal repository. */
+  readonly selectedOrg: IAPIOrganization | null
+
+  /** Should the published repository be private? */
+  readonly publishAsPrivate: boolean
 }
+
+/** The first GitHub.com account, or the first account of any kind. */
+const getDefaultPublishAccount = (
+  accounts: ReadonlyArray<Account>
+): Account | null => accounts.find(isDotComAccount) ?? accounts.at(0) ?? null
 
 /** The Create New Repository component. */
 export class CreateRepository extends React.Component<
@@ -143,6 +171,11 @@ export class CreateRepository extends React.Component<
       isRepository: false,
       readMeExists: false,
       isSubFolderOfRepository: false,
+      publishToRemote: false,
+      selectedAccount: getDefaultPublishAccount(props.accounts),
+      orgs: [],
+      selectedOrg: null,
+      publishAsPrivate: true,
     }
   }
 
@@ -153,6 +186,10 @@ export class CreateRepository extends React.Component<
     const licenses = await getLicenses()
 
     this.setState({ gitIgnoreNames, licenses })
+
+    if (this.state.selectedAccount) {
+      this.fetchOrgs(this.state.selectedAccount)
+    }
   }
 
   public componentDidUpdate(): void {
@@ -217,6 +254,52 @@ export class CreateRepository extends React.Component<
 
   private onDescriptionChanged = (description: string) => {
     this.setState({ description })
+  }
+
+  private onPublishToRemoteChange = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    this.setState({ publishToRemote: event.currentTarget.checked })
+  }
+
+  private onSelectedAccountChanged = (account: Account) => {
+    this.setState({ selectedAccount: account, orgs: [], selectedOrg: null })
+    this.fetchOrgs(account)
+  }
+
+  private async fetchOrgs(account: Account) {
+    try {
+      const api = getApiForAccount(account)
+      const apiOrgs = await api.fetchOrgs()
+      const orgs = [...apiOrgs].sort((a, b) =>
+        caseInsensitiveCompare(a.login, b.login)
+      )
+
+      // Only apply the result if the account is still the selected one --
+      // the user may have switched accounts while this was in flight.
+      this.setState(state =>
+        state.selectedAccount?.login === account.login &&
+        state.selectedAccount.endpoint === account.endpoint
+          ? { orgs }
+          : null
+      )
+    } catch (e) {
+      log.warn(`createRepository: failed fetching orgs for ${account.login}`, e)
+    }
+  }
+
+  private onOrgChange = (event: React.FormEvent<HTMLSelectElement>) => {
+    const value = event.currentTarget.value
+    const index = parseInt(value, 10)
+    const selectedOrg =
+      index < 0 || isNaN(index) ? null : this.state.orgs[index]
+    this.setState({ selectedOrg })
+  }
+
+  private onPublishAsPrivateChange = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    this.setState({ publishAsPrivate: event.currentTarget.checked })
   }
 
   private async updateReadMeExists(fullPath: string) {
@@ -380,12 +463,34 @@ export class CreateRepository extends React.Component<
       this.props.dispatcher.postError(e)
     }
 
+    let publishedRepository = repository
+
+    if (this.state.publishToRemote && this.state.selectedAccount) {
+      try {
+        publishedRepository = await this.props.dispatcher.publishRepository(
+          repository,
+          repository.name,
+          this.state.description,
+          this.state.publishAsPrivate,
+          this.state.selectedAccount,
+          this.state.selectedOrg
+        )
+      } catch (e) {
+        log.error(
+          `createRepository: failed publishing ${fullPath} to remote`,
+          e
+        )
+        this.setState({ creating: false })
+        return this.props.dispatcher.postError(e)
+      }
+    }
+
     this.setState({ creating: false })
 
     this.updateDefaultDirectory()
 
     this.props.dispatcher.closeFoldout(FoldoutType.Repository)
-    this.props.dispatcher.selectRepository(repository)
+    this.props.dispatcher.selectRepository(publishedRepository)
     this.props.dispatcher.recordCreateRepository()
     this.props.onDismissed()
   }
@@ -464,6 +569,103 @@ export class CreateRepository extends React.Component<
               {l.name}
             </option>
           ))}
+        </Select>
+      </Row>
+    )
+  }
+
+  private renderPublishSection() {
+    if (this.props.accounts.length === 0) {
+      return null
+    }
+
+    return (
+      <>
+        <Row>
+          <Checkbox
+            label="Publish this repository to a remote"
+            value={
+              this.state.publishToRemote ? CheckboxValue.On : CheckboxValue.Off
+            }
+            onChange={this.onPublishToRemoteChange}
+          />
+        </Row>
+
+        {this.state.publishToRemote && this.renderPublishOptions()}
+      </>
+    )
+  }
+
+  private renderPublishOptions() {
+    const { accounts } = this.props
+    const account = this.state.selectedAccount
+
+    if (!account) {
+      return null
+    }
+
+    return (
+      <>
+        {accounts.length > 1 && (
+          <Row>
+            <AccountPicker
+              accounts={accounts}
+              selectedAccount={account}
+              onSelectedAccountChanged={this.onSelectedAccountChanged}
+            />
+          </Row>
+        )}
+
+        {this.renderPublishOrgs()}
+
+        <Row>
+          <Checkbox
+            label="Keep this code private"
+            value={
+              this.state.publishAsPrivate ? CheckboxValue.On : CheckboxValue.Off
+            }
+            onChange={this.onPublishAsPrivateChange}
+          />
+        </Row>
+      </>
+    )
+  }
+
+  private renderPublishOrgs(): JSX.Element | null {
+    if (this.state.orgs.length === 0) {
+      return null
+    }
+
+    const options = new Array<JSX.Element>()
+    options.push(
+      <option value={-1} key={-1}>
+        None
+      </option>
+    )
+
+    let selectedIndex = -1
+
+    const selectedOrg = this.state.selectedOrg
+    for (const [index, org] of this.state.orgs.entries()) {
+      if (selectedOrg && selectedOrg.id === org.id) {
+        selectedIndex = index
+      }
+
+      options.push(
+        <option value={index} key={index}>
+          {org.login}
+        </option>
+      )
+    }
+
+    return (
+      <Row>
+        <Select
+          label="Organization"
+          value={selectedIndex.toString()}
+          onChange={this.onOrgChange}
+        >
+          {options}
         </Select>
       </Row>
     )
@@ -654,6 +856,7 @@ export class CreateRepository extends React.Component<
 
           {this.renderGitIgnores()}
           {this.renderLicenses()}
+          {this.renderPublishSection()}
         </DialogContent>
 
         <DialogFooter>

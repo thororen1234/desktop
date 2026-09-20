@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Account } from '../../models/account'
-import { API, IAPIOrganization } from '../../lib/api'
+import { IAPIOrganization } from '../../lib/api'
+import { getApiForAccount } from '../../lib/api/forge-api-factory'
 import { TextBox } from '../lib/text-box'
 import { Select } from '../lib/select'
 import { DialogContent } from '../dialog'
@@ -61,7 +62,7 @@ export class PublishRepository extends React.Component<
   }
 
   private async fetchOrgs(account: Account) {
-    const api = API.fromAccount(account)
+    const api = getApiForAccount(account)
     const apiOrgs = await api.fetchOrgs()
     const orgs = [...apiOrgs]
     orgs.sort((a, b) => caseInsensitiveCompare(a.login, b.login))

@@ -1,6 +1,7 @@
 import {
   IAPIFullRepository,
   IAPIIssue,
+  IAPIOrganization,
   IAPIPullRequest,
   IAPIRefCheckRuns,
   IAPIRefStatus,
@@ -67,4 +68,13 @@ export interface IForgeApi {
     ref: string,
     reloadCache?: boolean
   ): Promise<IAPIRefCheckRuns | null>
+
+  fetchOrgs(): Promise<ReadonlyArray<IAPIOrganization>>
+
+  createRepository(
+    org: IAPIOrganization | null,
+    name: string,
+    description: string,
+    private_: boolean
+  ): Promise<IAPIFullRepository>
 }

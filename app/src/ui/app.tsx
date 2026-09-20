@@ -1869,6 +1869,7 @@ export class App extends React.Component<IAppProps, IAppState> {
             dispatcher={this.props.dispatcher}
             initialPath={popup.path}
             isTopMost={isTopMost}
+            accounts={this.state.accounts}
           />
         )
       case PopupType.CloneRepository:

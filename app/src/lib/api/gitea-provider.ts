@@ -4,6 +4,7 @@ import {
   IAPIFullIdentity,
   IAPIFullRepository,
   IAPIIssue,
+  IAPIOrganization,
   IAPIPullRequest,
   IAPIRefCheckRuns,
   IAPIRefStatus,
@@ -11,7 +12,7 @@ import {
   MaxResultsError,
 } from '../api'
 import { GitProtocol } from '../remote-parsing'
-import { parsedResponse, request, urlWithQueryString } from '../http'
+import { APIError, parsedResponse, request, urlWithQueryString } from '../http'
 import { getGiteaHTMLURL } from './gitea-endpoint'
 
 /**
@@ -42,6 +43,13 @@ interface IGiteaPermission {
   readonly admin: boolean
   readonly push: boolean
   readonly pull: boolean
+}
+
+interface IGiteaOrganization {
+  readonly id: number
+  readonly name: string
+  readonly username?: string
+  readonly avatar_url: string
 }
 
 interface IGiteaRepository {
@@ -200,7 +208,8 @@ export class GiteaApi {
   private async giteaRequest(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
-    query?: { [key: string]: string }
+    query?: { [key: string]: string },
+    body?: Object
   ) {
     const url = query ? urlWithQueryString(path, query) : path
     const customHeaders: { [key: string]: string } = {
@@ -209,7 +218,7 @@ export class GiteaApi {
     if (this.token) {
       customHeaders.Authorization = `token ${this.token}`
     }
-    return request(this.endpoint, null, method, url, undefined, customHeaders)
+    return request(this.endpoint, null, method, url, body, customHeaders)
   }
 
   public async fetchAccount(): Promise<IAPIFullIdentity> {
@@ -485,6 +494,55 @@ export class GiteaApi {
     _reloadCache = false
   ): Promise<IAPIRefCheckRuns | null> {
     return null
+  }
+
+  /** Fetch all the organizations to which the user belongs. */
+  public async fetchOrgs(): Promise<ReadonlyArray<IAPIOrganization>> {
+    try {
+      const orgs = await this.fetchAllPages<IGiteaOrganization>('user/orgs')
+      return orgs.map(org => ({
+        id: org.id,
+        login: org.username || org.name,
+        avatar_url: org.avatar_url,
+        url: '',
+      }))
+    } catch (e) {
+      log.warn(`fetchOrgs: failed with endpoint ${this.endpoint}`, e)
+      return []
+    }
+  }
+
+  /** Create a new repository with the given properties. */
+  public async createRepository(
+    org: IAPIOrganization | null,
+    name: string,
+    description: string,
+    private_: boolean
+  ): Promise<IAPIFullRepository> {
+    try {
+      const apiPath = org ? `orgs/${org.login}/repos` : 'user/repos'
+      const response = await this.giteaRequest('POST', apiPath, undefined, {
+        name,
+        description,
+        private: private_,
+      })
+      const repo = await parsedResponse<IGiteaRepository>(response)
+      return toIAPIRepository(repo, this.htmlBase)
+    } catch (e) {
+      if (e instanceof APIError) {
+        if (org !== null) {
+          throw new Error(
+            `Unable to create repository for organization '${org.login}'. Verify that the repository does not already exist and that you have permission to create a repository there.`
+          )
+        }
+        throw e
+      }
+
+      log.error(`createRepository: failed with endpoint ${this.endpoint}`, e)
+      throw new Error(
+        `Unable to publish repository. Please check if you have an internet connection and try again.`
+      )
+    }
   }
 
   /** Fetch the current user's feature flags. Gitea has no equivalent. */
