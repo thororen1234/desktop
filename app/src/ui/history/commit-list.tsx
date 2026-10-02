@@ -10,7 +10,7 @@ import classNames from 'classnames'
 import memoizeOne from 'memoize-one'
 import { IMenuItem, showContextualMenu } from '../../lib/menu-item'
 import { getViewOnPlatformLabel } from '../../lib/view-on-platform'
-import { clipboard } from 'electron'
+import { writeClipboardText } from '../main-process-proxy'
 import { RowIndexPath } from '../lib/list/list-row-index-path'
 import { assertNever } from '../../lib/fatal-error'
 import { CommitDragElement } from '../drag-elements/commit-drag-element'
@@ -364,9 +364,8 @@ export class CommitList extends React.Component<
     }
 
     if (numUnpushedTags > 0) {
-      return `This commit has ${numUnpushedTags} tag${
-        numUnpushedTags > 1 ? 's' : ''
-      } to push`
+      return `This commit has ${numUnpushedTags} tag${numUnpushedTags > 1 ? 's' : ''
+        } to push`
     }
 
     return undefined
@@ -613,7 +612,7 @@ export class CommitList extends React.Component<
           keyboardInsertionElementRenderer={this.renderKeyboardInsertionElement}
           insertionDragType={
             reorderingEnabled === true &&
-            isMultiCommitOperationInProgress === false
+              isMultiCommitOperationInProgress === false
               ? DragType.Commit
               : undefined
           }
@@ -848,11 +847,11 @@ export class CommitList extends React.Component<
       { type: 'separator' },
       {
         label: 'Copy SHA',
-        action: () => clipboard.writeText(commit.sha),
+        action: () => writeClipboardText(commit.sha),
       },
       {
         label: __DARWIN__ ? darwinTagsLabel : windowTagsLabel,
-        action: () => clipboard.writeText(commit.tags.join(' ')),
+        action: () => writeClipboardText(commit.tags.join(' ')),
         enabled: commit.tags.length > 0,
       },
       {

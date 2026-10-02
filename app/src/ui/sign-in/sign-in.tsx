@@ -18,6 +18,10 @@ import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { Ref } from '../lib/ref'
 import { getHTMLURL } from '../../lib/api'
 import { LinkButton } from '../lib/link-button'
+import {
+  EnterpriseServerConfirmation,
+  enterpriseServerConfirmationDescriptionId,
+} from '../lib/enterprise-server-confirmation'
 
 interface ISignInProps {
   readonly dispatcher: Dispatcher
@@ -262,6 +266,15 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
   }
 
   private renderAuthenticationStep(state: IAuthenticationState) {
+    if (state.isUnrecognizedEnterpriseServer) {
+      return (
+        <DialogContent>
+          <EnterpriseServerConfirmation endpoint={state.endpoint} />
+          {browserSignInInfoContent}
+        </DialogContent>
+      )
+    }
+
     const credentialHelperInfo =
       this.props.isCredentialHelperSignIn && this.props.credentialHelperUrl ? (
         <p>
@@ -317,9 +330,18 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
     ) : null
 
     const title =
-      this.props.signInState.kind === SignInStep.Authentication
+      state.kind === SignInStep.Authentication
         ? SignInWithBrowserTitle
         : DefaultTitle
+
+    const confirmationDialogProps =
+      state.kind === SignInStep.Authentication &&
+        state.isUnrecognizedEnterpriseServer
+        ? {
+          role: 'alertdialog' as const,
+          ariaDescribedBy: enterpriseServerConfirmationDescriptionId,
+        }
+        : {}
 
     return (
       <Dialog
@@ -330,6 +352,7 @@ export class SignIn extends React.Component<ISignInProps, ISignInState> {
         onSubmit={this.onSubmit}
         loading={state.loading}
         ref={this.dialogRef}
+        {...confirmationDialogProps}
       >
         {errors}
         {this.renderStep()}

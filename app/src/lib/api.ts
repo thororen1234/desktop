@@ -830,6 +830,7 @@ export class API {
 
   public static onTokenInvalidated(callback: TokenInvalidatedCallback) {
     this.tokenInvalidatedListeners.add(callback)
+    return () => this.tokenInvalidatedListeners.delete(callback)
   }
 
   private static emitTokenInvalidated(endpoint: string, token: string) {
@@ -1703,10 +1704,16 @@ export class API {
     }
   }
 
+  /**
+   * Fetch the repository's protected branches.
+   *
+   * Returns an empty array when the request succeeds and no protected branches
+   * exist, or null when the protected branch list could not be refreshed.
+   */
   public async fetchProtectedBranches(
     owner: string,
     name: string
-  ): Promise<ReadonlyArray<IAPIBranch>> {
+  ): Promise<ReadonlyArray<IAPIBranch> | null> {
     const path = `repos/${owner}/${name}/branches?protected=true`
     try {
       const response = await this.ghRequest('GET', path)
@@ -1716,7 +1723,7 @@ export class API {
         `[fetchProtectedBranches] unable to list protected branches`,
         err
       )
-      return new Array<IAPIBranch>()
+      return null
     }
   }
 

@@ -35,6 +35,9 @@ export interface IDailyMeasures {
   /** The number of times the user has opened a shell from the app. */
   readonly openShellCount: number
 
+  /** The number of times the user invoked the GitHub Copilot app handoff. */
+  readonly openInCopilotAppCount: number
+
   /** The number of partial commits. */
   readonly partialCommits: number
 
@@ -690,6 +693,15 @@ export interface IDailyMeasures {
 
   /** The number of times the user stopped Copilot conflict resolution while loading */
   readonly copilotConflictResolutionStoppedCount: number
+
+  /** The number of times the conflict state disappeared after Copilot resolution was initiated */
+  readonly copilotConflictResolutionNoConflictStateCount: number
+
+  /** The number of times all conflicted files disappeared after Copilot resolution was initiated */
+  readonly copilotConflictResolutionNoConflictedFilesCount: number
+
+  /** The number of times every conflicted file was skipped by Copilot resolution */
+  readonly copilotConflictResolutionAllFilesSkippedCount: number
 
   /** The number of times Copilot conflict resolution failed with an error */
   readonly copilotConflictResolutionErrorCount: number
